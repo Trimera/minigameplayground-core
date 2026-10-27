@@ -1,0 +1,430 @@
+# PVP Balance
+
+Minecraft 1.20.1 / Fabric 服务端 PVP 平衡模组。
+
+PVP Balance 会根据玩家当前的最大生命值和场地基准，动态调整 PVP 伤害与治疗，并提供区域保护、耐久保护、地形快照和场地重置功能。
+
+- 纯服务端模组，客户端不需要安装。
+- 不修改玩家的 `MAX_HEALTH` 属性。
+- 不取消伤害后重新施加，避免递归伤害和击退异常。
+- 兼容 TaCZ、Spell Engine、Better Combat、Simply Swords 等走原版伤害/治疗流程的模组。
+- 阻止原版活塞把区域方块带出区域后复制，并阻止机械钻头/锯等 `Block.getDrops` 路径在区域内刷取掉落物。
+- Create Contraption 的防复制作为独立附属模组 `pvpbalance-create` 提供。
+
+## 环境要求
+
+| 项目 | 要求 |
+| --- | --- |
+| Minecraft | 1.20.1 |
+| Fabric Loader | 0.18.4 |
+| Fabric API | 0.92.6+1.20.1 |
+| Java | 17+ |
+| 客户端 | 不需要安装本模组 |
+| WorldEdit | 必需，7.2.15+ |
+| Create | 可选，安装附属模组时需要 6.0.8+ |
+
+## 构建与安装
+
+构建：
+
+```bash
+./gradlew build
+```
+
+产物：
+
+```text
+build/libs/pvpbalance-1.9.0.jar
+```
+
+发布 jar 不会捆绑 WorldEdit 或 Fabric API。
+
+安装：
+
+1. 把 jar 放入服务端的 `mods` 目录。
+2. 服务端安装 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
+3. 启动服务器。
+4. 使用 OP 权限等级 2 执行 `/pvb` 指令。
+
+如需 Create Contraption 防复制，再安装同目录下的
+`pvpbalance-create` 附属模组和服务端 Create 6.0.8+。
+
+客户端没有安装本模组也可以正常进入服务器。`/pvb reset` 的 Title 提示使用原版数据包。
+
+## 快速开始
+
+```text
+# 1. 创建场地，默认伤害基准 20、恢复基准 20、不消耗耐久
+/pvb create arena_1 ~ ~ ~ ~20 ~10 ~20
+
+# 2. 按需要调整基准
+/pvb damage arena_1 24.0
+/pvb heal arena_1 30.0
+
+# 3. 检查自己的位置和场地状态
+/pvb check
+
+# 4. 查看某个玩家的倍率
+/pvb damage_rate Steve arena_1
+/pvb heal_rate Steve arena_1
+```
+
+## 指令
+
+主指令：`/pvpbalance`  
+别名：`/pvb`  
+权限：OP 等级 2
+
+| 指令 | 说明 |
+| --- | --- |
+| `/pvb create <区域ID> <x1> <y1> <z1> <x2> <y2> <z2>` | 在当前维度创建区域；坐标支持 `~` |
+| `/pvb create <区域ID> dimension <维度ID> <x1> <y1> <z1> <x2> <y2> <z2>` | 在指定维度创建区域 |
+| `/pvb remove <区域ID>` | 删除区域及其快照 |
+| `/pvb list [维度ID]` | 列出全部区域，或只列出指定维度的区域；支持 `the_nether` 简写 |
+| `/pvb damage <区域ID> <伤害基准\|disable>` | 设置伤害基准，或禁用区域内伤害 |
+| `/pvb heal <区域ID> <恢复基准\|disable>` | 设置恢复基准，或禁用区域内治疗 |
+| `/pvb unbreakable <区域ID> <true\|false>` | 开启/关闭区域内耐久保护 |
+| `/pvb reset <区域ID>` | 清除掉落物并恢复地形快照 |
+| `/pvb snapshot <区域ID>` | 重新生成当前地形快照 |
+| `/pvb damage_rate <玩家> [区域ID]` | 查看伤害倍率 |
+| `/pvb heal_rate <玩家> [区域ID]` | 查看恢复倍率 |
+| `/pvb check` | 检查自己是否在场地内 |
+| `/pvb reload` | 重新加载区域配置 |
+| `/pvb help` | 显示游戏内帮助 |
+
+### 创建区域
+
+```text
+/pvb create arena_1 ~ ~ ~ ~20 ~10 ~20
+```
+
+- 新区域的维度取执行命令时所在的维度。
+- 新区域默认伤害基准 `20.0`。
+- 新区域默认恢复基准 `20.0`。
+- 新区域默认开启耐久保护，即不消耗物品耐久。
+- 再次对同一 ID 执行 `create` 会更新范围、维度和快照，保留原有基准、耐久和 disable 设置。
+- 单个区域体积上限由 `config/pvpbalance.json` 的 `maxZoneVolume` 控制，默认 `500,000`，最大 `20,000,000`。
+
+控制台默认位于主世界。可以在其他维度创建区域：
+
+```text
+# 方式一：切换命令执行维度
+/execute in minecraft:the_nether run pvb create nether_arena ~ ~ ~ ~20 ~10 ~20
+
+# 方式二：直接指定维度 ID
+/pvb create nether_arena dimension minecraft:the_nether ~ ~ ~ ~20 ~10 ~20
+```
+
+支持模组新增维度，例如：
+
+```text
+/pvb create custom_arena dimension mymod:custom_dimension ~ ~ ~ ~20 ~10 ~20
+/pvb list mymod:custom_dimension
+```
+
+区域 ID 和维度 ID 是两个不同的东西：
+
+- 区域 ID 是 `nether_arena` 这种自定义名称，用于后续 `/pvb reset`、`/pvb snapshot` 等操作。
+- 维度 ID 是 `minecraft:the_nether`、`mymod:custom_dimension` 这种实际维度标识。
+- 同一维度可以有多个区域，所以 `reset`/`snapshot` 仍然使用区域 ID，并自动读取该区域记录的维度。
+
+#### 维度解析规则
+
+`dimension` 是一个独立的关键字，不能省略。区域 ID 后面的第一个 token 会决定走哪条分支：
+
+| 输入 | 解析结果 |
+| --- | --- |
+| `/pvb create arena_1 ~ ~ ~ ~20 ~10 ~20` | 使用执行命令时所在维度 |
+| `/pvb create arena_1 dimension minecraft:the_nether ~ ~ ~ ~20 ~10 ~20` | 使用指定维度 |
+| `/pvb create arena_1 minecraft:the_nether ~ ~ ~ ~20 ~10 ~20` | 解析失败：`minecraft:the_nether` 会被当成坐标 |
+| `/pvb create arena_1 dimension ~ ~ ~ ~20 ~10 ~20` | 解析失败：`~` 不是维度 ID |
+| `/pvb create arena_1 dimension minecraft:the_nether ~ ~ ~` | 命令不完整：缺少第二个坐标点 |
+| `/pvb create arena_1` | 命令不完整：缺少坐标 |
+
+两条分支不会自动回退：
+
+- 不写 `dimension` 时，第一条分支要求后面直接是两组坐标。
+- 一旦写了 `dimension`，就必须继续写有效的维度 ID 和完整坐标；中途失败不会退回“当前维度”模式。
+
+维度 ID 支持 Tab 补全，补全来源是服务器当前加载的所有维度，包括模组新增维度。
+
+### 设置基准
+
+```text
+/pvb damage arena_1 24.0
+/pvb heal arena_1 30.0
+```
+
+设置数值时会自动重新启用对应的伤害/恢复。
+
+### 禁用伤害或恢复
+
+```text
+/pvb damage arena_1 disable
+/pvb heal arena_1 disable
+```
+
+- `damage disable`：区域内玩家受到的所有普通伤害变为 0，即安全区。
+  - 虚空伤害 `minecraft:out_of_world` 仍然生效。
+  - `minecraft:generic_kill` 仍然生效。
+  - 原版 `/kill` 仍然可以正常击杀。
+- `heal disable`：区域内玩家的所有 `heal()` 治疗变为 0。
+  - 包括自然回血、生命恢复效果、瞬间治疗和模组治疗。
+  - Health Boost、直接 `setHealth()` 不受影响。
+- 禁用状态下，`/pvb damage_rate` 和 `/pvb heal_rate` 会显示“已禁用”。
+
+重新设置数值即可恢复：
+
+```text
+/pvb damage arena_1 20
+/pvb heal arena_1 20
+```
+
+### 耐久保护
+
+```text
+/pvb unbreakable arena_1 true
+/pvb unbreakable arena_1 false
+```
+
+- `true`：区域内玩家不消耗物品耐久（默认）。
+- `false`：正常消耗耐久。
+
+控制范围是区域内玩家的所有可损坏物品，包括武器、盔甲、盾牌、弓弩和工具。
+
+## 伤害基准
+
+伤害缩放使用**减伤后的基础伤害**。
+
+基础伤害的结算顺序：
+
+```text
+受击冷却 / 无敌帧
+-> 盾牌、冻结、头盔等
+-> 盔甲、盔甲韧性
+-> 抗性提升、保护附魔
+-> 本模组应用伤害倍率
+-> 后续原版伤害流程
+```
+
+计算方式：
+
+```text
+伤害倍率 = 受击者最大生命值 / 区域伤害基准
+
+如果 减伤后伤害 < 伤害基准：
+    最终伤害 = round2(减伤后伤害 × 伤害倍率)
+否则：
+    最终伤害 = 受击者最大生命值
+```
+
+规则：
+
+- 最终伤害不会超过受击者最大生命值。
+- 超过伤害基准的部分不再参与计算，避免浮点溢出。
+- 结果保留两位小数。
+- 四舍五入为 `0.00` 时仍会走原版受击流程，保留受击动画和音效，并且仍然消耗原版受击冷却。
+- 只有受击者和攻击者处于同一个 PVP 区域时，伤害倍率才会生效。
+
+说明：
+
+- 达到伤害基准表示**减伤后**已经达到最大生命值上限；后续原版流程仍会继续处理。
+- 物理/魔法减伤仍然会正常参与，不会被本模组绕过。
+- 盔甲耐久消耗按缩放前的伤害计算。
+
+## 恢复基准
+
+恢复缩放使用：
+
+```text
+恢复倍率 = 玩家最大生命值 / 区域恢复基准
+
+如果 原始恢复量 < 恢复基准：
+    最终恢复量 = round2(原始恢复量 × 恢复倍率)
+否则：
+    最终恢复量 = 玩家最大生命值
+```
+
+规则：
+
+- 最终恢复量不会超过玩家最大生命值。
+- 结果保留两位小数。
+- 四舍五入为 `0.00` 时治疗 0。
+- 只要玩家在 PVP 区域内就会生效，不需要正在战斗。
+
+覆盖范围：
+
+- 饱食度/饱和度自然回血
+- 生命恢复（Regeneration）效果
+- 瞬间治疗（Instant Health）效果
+- 食物、药水、模组技能等最终调用 `heal()` 的治疗
+
+如果模组直接写入生命值（例如 `setHealth()`），不会经过恢复倍率。
+
+## 场地保护
+
+### 区域内方块无掉落物
+
+以下路径生成的掉落物会在 PVP 区域内被取消：
+
+- 方块挖掘、爆炸等 `Block.dropResources(...)`
+- `Block.getDrops(...)`，包括 Create 钻头、机械锯、收割器等机械方块破坏路径
+- `Block.popResource(...)` / `popResourceFromFace(...)`
+- 箱子、木桶等容器的 `Containers.dropContents(...)`
+
+玩家按 Q 丢弃物品，以及通过丢弃物品触发的技能，不受影响。
+
+### 防复制：原版活塞
+
+- 当一个活塞推动的方块源位置在区域内、目标位置在区域外时，只吞掉这一个源方块。
+- 同一次推动中的其他方块继续正常移动。
+- 被吞掉的方块不产生掉落物；`/pvb reset` 可以恢复。
+- 目标位置在区域内，或源方块本来就在区域外时，不拦截。
+- 其他模组的方块移动系统暂不覆盖。
+
+Create Contraption 的组装/拆卸、矿车 NBT 和多区域判断放在独立附属模组
+`pvpbalance-create` 中，避免核心模组强制依赖 Create。
+
+### 快照与重置
+
+- 执行 `/pvb create` 时自动生成地形快照。
+- `/pvb snapshot <区域ID>` 可用当前地形重新生成快照。
+- `/pvb reset <区域ID>` 会：
+  1. 向场地内玩家发送重置提示；
+  2. 清除区域内所有掉落物实体；
+  3. 将方块和方块实体恢复到快照状态；
+  4. 再次清理掉落物并提示完成。
+- 快照会记录创建时的维度，控制台执行重置时会定位到正确维度。
+- 旧版本创建、没有快照的区域，请先执行一次 `/pvb snapshot <区域ID>`。
+
+快照实现：
+
+- WorldEdit 是硬依赖，使用 `.schem` 格式和 WorldEdit 粘贴 API。
+- 快照写入 `config/pvpbalance-snapshots/` 文件，重启服务器后仍然存在。
+- `/pvb reset` 从文件读取快照后恢复，不依赖上一次命令留下的内存状态。
+- 仍保留内置 `StructureTemplate` 快照作为 WorldEdit 操作异常时的兜底。
+
+## 配置文件
+
+区域配置保存在：
+
+```text
+config/pvpbalance-zones.json
+config/pvpbalance-snapshots/
+```
+
+通用配置：
+
+```text
+config/pvpbalance.json
+```
+
+```json
+{
+  "maxZoneVolume": 500000
+}
+```
+
+- 默认上限 `500,000`。
+- 允许设置到 `20,000,000`。
+- 超过 `20,000,000` 会自动限制到 `20,000,000` 并打印警告。
+- 超过 `1,000,000` 时会记录大体积警告。
+- 修改后执行 `/pvb reload` 生效。
+- 该上限作用于 `/pvb create`、`/pvb snapshot`、`/pvb reset`。
+
+区域字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `dimension` | 区域所在维度 |
+| `standardHealth` | 伤害基准 |
+| `restoreBaseline` | 恢复基准 |
+| `keepDurability` | `true` = 不消耗耐久 |
+| `damageDisabled` | `true` = 禁用区域伤害 |
+| `healDisabled` | `true` = 禁用区域治疗 |
+
+旧配置缺少新字段时使用默认值：
+
+```text
+dimension = "minecraft:overworld"
+restoreBaseline = 20.0
+keepDurability = true
+damageDisabled = false
+healDisabled = false
+```
+
+伤害和恢复计算只读取内存，不会在战斗过程中读取磁盘。
+
+## 兼容性
+
+- 伤害缩放基于 `LivingEntity.getDamageAfterMagicAbsorb()` 的返回值，位于盔甲、抗性、保护附魔之后。
+- 恢复缩放拦截 `LivingEntity.heal(float)`。
+- 耐久保护拦截 `ItemStack.hurtAndBreak(...)` 和 `ItemStack.hurt(...)`。
+- TaCZ 子弹最终走 `Entity.hurt(...)` / `LivingEntity.hurt(...)`，因此可以覆盖。
+- Spell Engine、Better Combat、Simply Swords、Puffish Attributes 等走原版流程的模组可以覆盖。
+- 完全绕过 `hurt()` / `heal()`、直接写生命值的模组无法拦截。
+- MmmMmmMmmMmm 训练假人是 `Mob`，不是 `ServerPlayer`，不会触发玩家伤害/恢复倍率，可以安全用作测试目标。
+- 区域按创建/更新时记录的维度隔离；相同坐标在不同维度互不影响。
+- 其他模组自己的方块搬运、采掘或存储系统不会被自动拦截；如需覆盖，需要单独适配。
+- Create Contraption 保护由独立模组 `pvpbalance-create` 提供；不安装它时核心模组不会加载 Create 相关 Mixin。
+
+## 常见问题
+
+**客户端需要安装吗？**
+
+不需要。只有服务端需要本模组、Fabric Loader 和 Fabric API。
+
+**为什么达到伤害基准没有直接击杀？**
+
+伤害倍率基于减伤后的伤害；护甲、抗性、保护附魔已经先参与计算并正常生效。达到基准表示减伤后已经达到最大生命值上限，不代表无视后续所有原版机制。
+
+**为什么 0 伤害也有受击动画？**
+
+这是有意保留的行为。0 伤害仍然走原版受击流程，因此有动画和音效，也会消耗原版受击冷却。
+
+**`damage disable` 后为什么还能被虚空或 `/kill` 杀死？**
+
+这是安全区特例。虚空伤害、`generic_kill` 和 `/kill` 被保留，避免管理员无法处理卡在场地里的玩家。
+
+**区域会跨维度生效吗？**
+
+不会。区域在创建/更新时记录维度，伤害、治疗、耐久、无掉落物、快照和重置都只作用于该维度。
+
+**模组新增维度怎么创建区域？**
+
+使用显式维度 ID：
+
+```text
+/pvb create arena_1 dimension mymod:custom_dimension ~ ~ ~ ~20 ~10 ~20
+```
+
+也可以用 `/execute in mymod:custom_dimension run pvb create ...`。
+
+查看模组维度中的区域：
+
+```text
+/pvb list mymod:custom_dimension
+```
+
+`/pvb list the_nether` 这类未写命名空间的输入会自动补全为 `minecraft:the_nether`。
+
+**WorldEdit 必须安装吗？**
+
+必须。服务端需要安装 WorldEdit 7.2.15 或更高版本，否则模组不会加载。
+
+**Create 必须安装吗？**
+
+核心模组不强制。需要 Create Contraption 防复制时，额外安装
+`pvpbalance-create` 附属模组和服务端 Create 6.0.8+。
+
+**区域体积上限怎么改？**
+
+编辑 `config/pvpbalance.json`：
+
+```json
+{
+  "maxZoneVolume": 2000000
+}
+```
+
+然后执行 `/pvb reload`。不要设置超过 `20,000,000`，超过会被自动限制。

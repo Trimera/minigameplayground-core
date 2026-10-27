@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.pvpbalance.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "pvpbalance.refmap.json",
+  "mixins": [
+    "LivingEntityMixin",
+    "ItemStackDurabilityMixin",
+    "BlockDropMixin",
+    "ContainersMixin",
+    "PistonStructureResolverMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
