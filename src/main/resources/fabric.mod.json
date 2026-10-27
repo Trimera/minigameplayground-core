@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "id": "pvpbalance",
+  "id": "minigameplayground",
   "version": "${version}",
-  "name": "PVP Balance",
-  "description": "Dimension-aware server-side PVP damage/healing balancing with safe zones, unbreakable items, WorldEdit snapshots, configurable volume limit, reset support and piston/tool anti-duplication protection.",
+  "name": "MiniGamePlayground",
+  "description": "Server-side mini-game playground zones with player damage/healing balance, unbreakable items, WorldEdit snapshots, configurable volume limits, reset support and piston/tool anti-duplication protection.",
   "authors": [
-    "pvpbalance"
+    "MiniGamePlayground"
   ],
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
     "main": [
-      "com.pvpbalance.PvpBalanceMod"
+      "com.minigameplayground.MiniGamePlaygroundMod"
     ]
   },
   "mixins": [
-    "pvpbalance.mixins.json"
+    "minigameplayground.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.15.0",

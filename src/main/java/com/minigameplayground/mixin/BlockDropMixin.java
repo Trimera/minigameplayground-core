@@ -1,6 +1,6 @@
-package com.pvpbalance.mixin;
+package com.minigameplayground.mixin;
 
-import com.pvpbalance.zone.ZoneManager;
+import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -21,7 +21,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Suppresses block-generated item drops inside PVP zones.
+ * Suppresses block-generated item drops inside playground zones.
  *
  * <p>This targets {@code Block.dropResources} (the 1.20.1 Mojang-mapped equivalent of
  * Yarn's {@code Block.dropStacks}) and the lower-level {@code popResource} entry points.
@@ -40,10 +40,10 @@ public abstract class BlockDropMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void pvpbalance$cancelGetDrops(BlockState state, ServerLevel level, BlockPos pos,
+    private static void minigameplayground$cancelGetDrops(BlockState state, ServerLevel level, BlockPos pos,
                                                   BlockEntity blockEntity,
                                                   CallbackInfoReturnable<List<ItemStack>> cir) {
-        if (ZoneManager.isInAnyPvpZone(level, pos)) {
+        if (ZoneManager.isInAnyPlaygroundZone(level, pos)) {
             cir.setReturnValue(Collections.emptyList());
         }
     }
@@ -53,10 +53,10 @@ public abstract class BlockDropMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void pvpbalance$cancelGetDropsWithTool(BlockState state, ServerLevel level, BlockPos pos,
+    private static void minigameplayground$cancelGetDropsWithTool(BlockState state, ServerLevel level, BlockPos pos,
                                                          BlockEntity blockEntity, Entity entity, ItemStack tool,
                                                          CallbackInfoReturnable<List<ItemStack>> cir) {
-        if (ZoneManager.isInAnyPvpZone(level, pos)) {
+        if (ZoneManager.isInAnyPlaygroundZone(level, pos)) {
             cir.setReturnValue(Collections.emptyList());
         }
     }
@@ -66,9 +66,9 @@ public abstract class BlockDropMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void pvpbalance$cancelDropResources(BlockState state, Level level, BlockPos pos,
+    private static void minigameplayground$cancelDropResources(BlockState state, Level level, BlockPos pos,
                                                        CallbackInfo ci) {
-        if (ZoneManager.isInAnyPvpZone(level, pos)) {
+        if (ZoneManager.isInAnyPlaygroundZone(level, pos)) {
             ci.cancel();
         }
     }
@@ -78,10 +78,10 @@ public abstract class BlockDropMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void pvpbalance$cancelDropResourcesWithBlockEntity(BlockState state, LevelAccessor level,
+    private static void minigameplayground$cancelDropResourcesWithBlockEntity(BlockState state, LevelAccessor level,
                                                                      BlockPos pos, BlockEntity blockEntity,
                                                                      CallbackInfo ci) {
-        if (level instanceof Level world && ZoneManager.isInAnyPvpZone(world, pos)) {
+        if (level instanceof Level world && ZoneManager.isInAnyPlaygroundZone(world, pos)) {
             ci.cancel();
         }
     }
@@ -91,10 +91,10 @@ public abstract class BlockDropMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void pvpbalance$cancelPlayerDestroyDrops(BlockState state, Level level, BlockPos pos,
+    private static void minigameplayground$cancelPlayerDestroyDrops(BlockState state, Level level, BlockPos pos,
                                                            BlockEntity blockEntity, Entity entity, ItemStack tool,
                                                            CallbackInfo ci) {
-        if (ZoneManager.isInAnyPvpZone(level, pos)) {
+        if (ZoneManager.isInAnyPlaygroundZone(level, pos)) {
             ci.cancel();
         }
     }
@@ -104,8 +104,8 @@ public abstract class BlockDropMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void pvpbalance$cancelPopResource(Level level, BlockPos pos, ItemStack stack, CallbackInfo ci) {
-        if (ZoneManager.isInAnyPvpZone(level, pos)) {
+    private static void minigameplayground$cancelPopResource(Level level, BlockPos pos, ItemStack stack, CallbackInfo ci) {
+        if (ZoneManager.isInAnyPlaygroundZone(level, pos)) {
             ci.cancel();
         }
     }
@@ -115,9 +115,9 @@ public abstract class BlockDropMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void pvpbalance$cancelPopResourceFromFace(Level level, BlockPos pos, Direction direction,
+    private static void minigameplayground$cancelPopResourceFromFace(Level level, BlockPos pos, Direction direction,
                                                             ItemStack stack, CallbackInfo ci) {
-        if (ZoneManager.isInAnyPvpZone(level, pos)) {
+        if (ZoneManager.isInAnyPlaygroundZone(level, pos)) {
             ci.cancel();
         }
     }

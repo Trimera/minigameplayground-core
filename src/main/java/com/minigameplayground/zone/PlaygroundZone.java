@@ -1,4 +1,4 @@
-package com.pvpbalance.zone;
+package com.minigameplayground.zone;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
@@ -8,12 +8,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 
 /**
- * An axis-aligned PVP zone with independent damage, healing and durability settings.
+ * An axis-aligned playground zone with independent damage, healing and durability settings.
  *
  * <p>Zones are dimension-specific. The dimension id is recorded when the zone is
  * created and every position lookup checks it first.</p>
  */
-public final class PvpZone {
+public final class PlaygroundZone {
     public static final float DEFAULT_DAMAGE_BASELINE = 20.0F;
     public static final float DEFAULT_RESTORE_BASELINE = 20.0F;
     public static final String DEFAULT_DIMENSION = "minecraft:overworld";
@@ -32,26 +32,26 @@ public final class PvpZone {
     private final boolean damageDisabled;
     private final boolean healDisabled;
 
-    public PvpZone(String id, double x1, double y1, double z1, double x2, double y2, double z2,
+    public PlaygroundZone(String id, double x1, double y1, double z1, double x2, double y2, double z2,
                    float standardHealth) {
         this(id, DEFAULT_DIMENSION, x1, y1, z1, x2, y2, z2,
                 standardHealth, DEFAULT_RESTORE_BASELINE, true, false, false);
     }
 
-    public PvpZone(String id, double x1, double y1, double z1, double x2, double y2, double z2,
+    public PlaygroundZone(String id, double x1, double y1, double z1, double x2, double y2, double z2,
                    float standardHealth, float restoreBaseline, boolean keepDurability) {
         this(id, DEFAULT_DIMENSION, x1, y1, z1, x2, y2, z2,
                 standardHealth, restoreBaseline, keepDurability, false, false);
     }
 
-    public PvpZone(String id, double x1, double y1, double z1, double x2, double y2, double z2,
+    public PlaygroundZone(String id, double x1, double y1, double z1, double x2, double y2, double z2,
                    float standardHealth, float restoreBaseline, boolean keepDurability,
                    boolean damageDisabled, boolean healDisabled) {
         this(id, DEFAULT_DIMENSION, x1, y1, z1, x2, y2, z2,
                 standardHealth, restoreBaseline, keepDurability, damageDisabled, healDisabled);
     }
 
-    public PvpZone(String id, String dimension,
+    public PlaygroundZone(String id, String dimension,
                    double x1, double y1, double z1, double x2, double y2, double z2,
                    float standardHealth, float restoreBaseline, boolean keepDurability,
                    boolean damageDisabled, boolean healDisabled) {
@@ -238,32 +238,32 @@ public final class PvpZone {
         return (long) this.getSizeX() * (long) this.getSizeY() * (long) this.getSizeZ();
     }
 
-    public PvpZone withStandardHealth(float newStandardHealth) {
-        return new PvpZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
+    public PlaygroundZone withStandardHealth(float newStandardHealth) {
+        return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, newStandardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled);
     }
 
-    public PvpZone withRestoreBaseline(float newRestoreBaseline) {
-        return new PvpZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
+    public PlaygroundZone withRestoreBaseline(float newRestoreBaseline) {
+        return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, newRestoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled);
     }
 
-    public PvpZone withKeepDurability(boolean newKeepDurability) {
-        return new PvpZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
+    public PlaygroundZone withKeepDurability(boolean newKeepDurability) {
+        return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 newKeepDurability, this.damageDisabled, this.healDisabled);
     }
 
-    public PvpZone withDamageDisabled(boolean newDamageDisabled) {
-        return new PvpZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
+    public PlaygroundZone withDamageDisabled(boolean newDamageDisabled) {
+        return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, newDamageDisabled, this.healDisabled);
     }
 
-    public PvpZone withHealDisabled(boolean newHealDisabled) {
-        return new PvpZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
+    public PlaygroundZone withHealDisabled(boolean newHealDisabled) {
+        return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, newHealDisabled);
     }

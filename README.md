@@ -1,15 +1,15 @@
-# PVP Balance
+# MiniGamePlayground
 
-Minecraft 1.20.1 / Fabric 服务端 PVP 平衡模组。
+Minecraft 1.20.1 / Fabric 服务端小游戏场地搭建与玩家对战平衡工具。
 
-PVP Balance 会根据玩家当前的最大生命值和场地基准，动态调整 PVP 伤害与治疗，并提供区域保护、耐久保护、地形快照和场地重置功能。
+MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动态调整玩家对战伤害与治疗，并提供区域保护、耐久保护、地形快照和场地重置功能。
 
 - 纯服务端模组，客户端不需要安装。
 - 不修改玩家的 `MAX_HEALTH` 属性。
 - 不取消伤害后重新施加，避免递归伤害和击退异常。
 - 兼容 TaCZ、Spell Engine、Better Combat、Simply Swords 等走原版伤害/治疗流程的模组。
 - 阻止原版活塞把区域方块带出区域后复制，并阻止机械钻头/锯等 `Block.getDrops` 路径在区域内刷取掉落物。
-- Create Contraption 的防复制作为独立附属模组 `pvpbalance-create` 提供。
+- Create Contraption 的防复制作为独立附属模组 `minigameplayground-create` 提供。
 
 ## 环境要求
 
@@ -34,7 +34,7 @@ PVP Balance 会根据玩家当前的最大生命值和场地基准，动态调�
 产物：
 
 ```text
-build/libs/pvpbalance-1.9.0.jar
+build/libs/minigameplayground-2.0.0.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -44,58 +44,58 @@ build/libs/pvpbalance-1.9.0.jar
 1. 把 jar 放入服务端的 `mods` 目录。
 2. 服务端安装 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
 3. 启动服务器。
-4. 使用 OP 权限等级 2 执行 `/pvb` 指令。
+4. 使用 OP 权限等级 2 执行 `/mgp` 指令。
 
 如需 Create Contraption 防复制，再安装同目录下的
-`pvpbalance-create` 附属模组和服务端 Create 6.0.8+。
+`minigameplayground-create` 附属模组和服务端 Create 6.0.8+。
 
-客户端没有安装本模组也可以正常进入服务器。`/pvb reset` 的 Title 提示使用原版数据包。
+客户端没有安装本模组也可以正常进入服务器。`/mgp reset` 的 Title 提示使用原版数据包。
 
 ## 快速开始
 
 ```text
 # 1. 创建场地，默认伤害基准 20、恢复基准 20、不消耗耐久
-/pvb create arena_1 ~ ~ ~ ~20 ~10 ~20
+/mgp create arena_1 ~ ~ ~ ~20 ~10 ~20
 
 # 2. 按需要调整基准
-/pvb damage arena_1 24.0
-/pvb heal arena_1 30.0
+/mgp damage arena_1 24.0
+/mgp heal arena_1 30.0
 
 # 3. 检查自己的位置和场地状态
-/pvb check
+/mgp check
 
 # 4. 查看某个玩家的倍率
-/pvb damage_rate Steve arena_1
-/pvb heal_rate Steve arena_1
+/mgp damage_rate Steve arena_1
+/mgp heal_rate Steve arena_1
 ```
 
 ## 指令
 
-主指令：`/pvpbalance`  
-别名：`/pvb`  
+主指令：`/mgp`  
+兼容别名：`/minigameplayground`、`/pvb`、`/pvpbalance`  
 权限：OP 等级 2
 
 | 指令 | 说明 |
 | --- | --- |
-| `/pvb create <区域ID> <x1> <y1> <z1> <x2> <y2> <z2>` | 在当前维度创建区域；坐标支持 `~` |
-| `/pvb create <区域ID> dimension <维度ID> <x1> <y1> <z1> <x2> <y2> <z2>` | 在指定维度创建区域 |
-| `/pvb remove <区域ID>` | 删除区域及其快照 |
-| `/pvb list [维度ID]` | 列出全部区域，或只列出指定维度的区域；支持 `the_nether` 简写 |
-| `/pvb damage <区域ID> <伤害基准\|disable>` | 设置伤害基准，或禁用区域内伤害 |
-| `/pvb heal <区域ID> <恢复基准\|disable>` | 设置恢复基准，或禁用区域内治疗 |
-| `/pvb unbreakable <区域ID> <true\|false>` | 开启/关闭区域内耐久保护 |
-| `/pvb reset <区域ID>` | 清除掉落物并恢复地形快照 |
-| `/pvb snapshot <区域ID>` | 重新生成当前地形快照 |
-| `/pvb damage_rate <玩家> [区域ID]` | 查看伤害倍率 |
-| `/pvb heal_rate <玩家> [区域ID]` | 查看恢复倍率 |
-| `/pvb check` | 检查自己是否在场地内 |
-| `/pvb reload` | 重新加载区域配置 |
-| `/pvb help` | 显示游戏内帮助 |
+| `/mgp create <区域ID> <x1> <y1> <z1> <x2> <y2> <z2>` | 在当前维度创建区域；坐标支持 `~` |
+| `/mgp create <区域ID> dimension <维度ID> <x1> <y1> <z1> <x2> <y2> <z2>` | 在指定维度创建区域 |
+| `/mgp remove <区域ID>` | 删除区域及其快照 |
+| `/mgp list [维度ID]` | 列出全部区域，或只列出指定维度的区域；支持 `the_nether` 简写 |
+| `/mgp damage <区域ID> <伤害基准\|disable>` | 设置伤害基准，或禁用区域内伤害 |
+| `/mgp heal <区域ID> <恢复基准\|disable>` | 设置恢复基准，或禁用区域内治疗 |
+| `/mgp unbreakable <区域ID> <true\|false>` | 开启/关闭区域内耐久保护 |
+| `/mgp reset <区域ID>` | 清除掉落物并恢复地形快照 |
+| `/mgp snapshot <区域ID>` | 重新生成当前地形快照 |
+| `/mgp damage_rate <玩家> [区域ID]` | 查看伤害倍率 |
+| `/mgp heal_rate <玩家> [区域ID]` | 查看恢复倍率 |
+| `/mgp check` | 检查自己是否在场地内 |
+| `/mgp reload` | 重新加载区域配置 |
+| `/mgp help` | 显示游戏内帮助 |
 
 ### 创建区域
 
 ```text
-/pvb create arena_1 ~ ~ ~ ~20 ~10 ~20
+/mgp create arena_1 ~ ~ ~ ~20 ~10 ~20
 ```
 
 - 新区域的维度取执行命令时所在的维度。
@@ -103,28 +103,28 @@ build/libs/pvpbalance-1.9.0.jar
 - 新区域默认恢复基准 `20.0`。
 - 新区域默认开启耐久保护，即不消耗物品耐久。
 - 再次对同一 ID 执行 `create` 会更新范围、维度和快照，保留原有基准、耐久和 disable 设置。
-- 单个区域体积上限由 `config/pvpbalance.json` 的 `maxZoneVolume` 控制，默认 `500,000`，最大 `20,000,000`。
+- 单个区域体积上限由 `config/minigameplayground.json` 的 `maxZoneVolume` 控制，默认 `500,000`，最大 `20,000,000`。
 
 控制台默认位于主世界。可以在其他维度创建区域：
 
 ```text
 # 方式一：切换命令执行维度
-/execute in minecraft:the_nether run pvb create nether_arena ~ ~ ~ ~20 ~10 ~20
+/execute in minecraft:the_nether run mgp create nether_arena ~ ~ ~ ~20 ~10 ~20
 
 # 方式二：直接指定维度 ID
-/pvb create nether_arena dimension minecraft:the_nether ~ ~ ~ ~20 ~10 ~20
+/mgp create nether_arena dimension minecraft:the_nether ~ ~ ~ ~20 ~10 ~20
 ```
 
 支持模组新增维度，例如：
 
 ```text
-/pvb create custom_arena dimension mymod:custom_dimension ~ ~ ~ ~20 ~10 ~20
-/pvb list mymod:custom_dimension
+/mgp create custom_arena dimension mymod:custom_dimension ~ ~ ~ ~20 ~10 ~20
+/mgp list mymod:custom_dimension
 ```
 
 区域 ID 和维度 ID 是两个不同的东西：
 
-- 区域 ID 是 `nether_arena` 这种自定义名称，用于后续 `/pvb reset`、`/pvb snapshot` 等操作。
+- 区域 ID 是 `nether_arena` 这种自定义名称，用于后续 `/mgp reset`、`/mgp snapshot` 等操作。
 - 维度 ID 是 `minecraft:the_nether`、`mymod:custom_dimension` 这种实际维度标识。
 - 同一维度可以有多个区域，所以 `reset`/`snapshot` 仍然使用区域 ID，并自动读取该区域记录的维度。
 
@@ -134,12 +134,12 @@ build/libs/pvpbalance-1.9.0.jar
 
 | 输入 | 解析结果 |
 | --- | --- |
-| `/pvb create arena_1 ~ ~ ~ ~20 ~10 ~20` | 使用执行命令时所在维度 |
-| `/pvb create arena_1 dimension minecraft:the_nether ~ ~ ~ ~20 ~10 ~20` | 使用指定维度 |
-| `/pvb create arena_1 minecraft:the_nether ~ ~ ~ ~20 ~10 ~20` | 解析失败：`minecraft:the_nether` 会被当成坐标 |
-| `/pvb create arena_1 dimension ~ ~ ~ ~20 ~10 ~20` | 解析失败：`~` 不是维度 ID |
-| `/pvb create arena_1 dimension minecraft:the_nether ~ ~ ~` | 命令不完整：缺少第二个坐标点 |
-| `/pvb create arena_1` | 命令不完整：缺少坐标 |
+| `/mgp create arena_1 ~ ~ ~ ~20 ~10 ~20` | 使用执行命令时所在维度 |
+| `/mgp create arena_1 dimension minecraft:the_nether ~ ~ ~ ~20 ~10 ~20` | 使用指定维度 |
+| `/mgp create arena_1 minecraft:the_nether ~ ~ ~ ~20 ~10 ~20` | 解析失败：`minecraft:the_nether` 会被当成坐标 |
+| `/mgp create arena_1 dimension ~ ~ ~ ~20 ~10 ~20` | 解析失败：`~` 不是维度 ID |
+| `/mgp create arena_1 dimension minecraft:the_nether ~ ~ ~` | 命令不完整：缺少第二个坐标点 |
+| `/mgp create arena_1` | 命令不完整：缺少坐标 |
 
 两条分支不会自动回退：
 
@@ -151,8 +151,8 @@ build/libs/pvpbalance-1.9.0.jar
 ### 设置基准
 
 ```text
-/pvb damage arena_1 24.0
-/pvb heal arena_1 30.0
+/mgp damage arena_1 24.0
+/mgp heal arena_1 30.0
 ```
 
 设置数值时会自动重新启用对应的伤害/恢复。
@@ -160,8 +160,8 @@ build/libs/pvpbalance-1.9.0.jar
 ### 禁用伤害或恢复
 
 ```text
-/pvb damage arena_1 disable
-/pvb heal arena_1 disable
+/mgp damage arena_1 disable
+/mgp heal arena_1 disable
 ```
 
 - `damage disable`：区域内玩家受到的所有普通伤害变为 0，即安全区。
@@ -171,20 +171,20 @@ build/libs/pvpbalance-1.9.0.jar
 - `heal disable`：区域内玩家的所有 `heal()` 治疗变为 0。
   - 包括自然回血、生命恢复效果、瞬间治疗和模组治疗。
   - Health Boost、直接 `setHealth()` 不受影响。
-- 禁用状态下，`/pvb damage_rate` 和 `/pvb heal_rate` 会显示“已禁用”。
+- 禁用状态下，`/mgp damage_rate` 和 `/mgp heal_rate` 会显示“已禁用”。
 
 重新设置数值即可恢复：
 
 ```text
-/pvb damage arena_1 20
-/pvb heal arena_1 20
+/mgp damage arena_1 20
+/mgp heal arena_1 20
 ```
 
 ### 耐久保护
 
 ```text
-/pvb unbreakable arena_1 true
-/pvb unbreakable arena_1 false
+/mgp unbreakable arena_1 true
+/mgp unbreakable arena_1 false
 ```
 
 - `true`：区域内玩家不消耗物品耐久（默认）。
@@ -224,7 +224,7 @@ build/libs/pvpbalance-1.9.0.jar
 - 超过伤害基准的部分不再参与计算，避免浮点溢出。
 - 结果保留两位小数。
 - 四舍五入为 `0.00` 时仍会走原版受击流程，保留受击动画和音效，并且仍然消耗原版受击冷却。
-- 只有受击者和攻击者处于同一个 PVP 区域时，伤害倍率才会生效。
+- 只有受击者和攻击者处于同一个游戏区域时，伤害倍率才会生效。
 
 说明：
 
@@ -250,7 +250,7 @@ build/libs/pvpbalance-1.9.0.jar
 - 最终恢复量不会超过玩家最大生命值。
 - 结果保留两位小数。
 - 四舍五入为 `0.00` 时治疗 0。
-- 只要玩家在 PVP 区域内就会生效，不需要正在战斗。
+- 只要玩家在游戏区域内就会生效，不需要正在战斗。
 
 覆盖范围：
 
@@ -265,7 +265,7 @@ build/libs/pvpbalance-1.9.0.jar
 
 ### 区域内方块无掉落物
 
-以下路径生成的掉落物会在 PVP 区域内被取消：
+以下路径生成的掉落物会在游戏区域内被取消：
 
 - 方块挖掘、爆炸等 `Block.dropResources(...)`
 - `Block.getDrops(...)`，包括 Create 钻头、机械锯、收割器等机械方块破坏路径
@@ -278,30 +278,30 @@ build/libs/pvpbalance-1.9.0.jar
 
 - 当一个活塞推动的方块源位置在区域内、目标位置在区域外时，只吞掉这一个源方块。
 - 同一次推动中的其他方块继续正常移动。
-- 被吞掉的方块不产生掉落物；`/pvb reset` 可以恢复。
+- 被吞掉的方块不产生掉落物；`/mgp reset` 可以恢复。
 - 目标位置在区域内，或源方块本来就在区域外时，不拦截。
 - 其他模组的方块移动系统暂不覆盖。
 
 Create Contraption 的组装/拆卸、矿车 NBT 和多区域判断放在独立附属模组
-`pvpbalance-create` 中，避免核心模组强制依赖 Create。
+`minigameplayground-create` 中，避免核心模组强制依赖 Create。
 
 ### 快照与重置
 
-- 执行 `/pvb create` 时自动生成地形快照。
-- `/pvb snapshot <区域ID>` 可用当前地形重新生成快照。
-- `/pvb reset <区域ID>` 会：
+- 执行 `/mgp create` 时自动生成地形快照。
+- `/mgp snapshot <区域ID>` 可用当前地形重新生成快照。
+- `/mgp reset <区域ID>` 会：
   1. 向场地内玩家发送重置提示；
   2. 清除区域内所有掉落物实体；
   3. 将方块和方块实体恢复到快照状态；
   4. 再次清理掉落物并提示完成。
 - 快照会记录创建时的维度，控制台执行重置时会定位到正确维度。
-- 旧版本创建、没有快照的区域，请先执行一次 `/pvb snapshot <区域ID>`。
+- 旧版本创建、没有快照的区域，请先执行一次 `/mgp snapshot <区域ID>`。
 
 快照实现：
 
 - WorldEdit 是硬依赖，使用 `.schem` 格式和 WorldEdit 粘贴 API。
-- 快照写入 `config/pvpbalance-snapshots/` 文件，重启服务器后仍然存在。
-- `/pvb reset` 从文件读取快照后恢复，不依赖上一次命令留下的内存状态。
+- 快照写入 `config/minigameplayground-snapshots/` 文件，重启服务器后仍然存在。
+- `/mgp reset` 从文件读取快照后恢复，不依赖上一次命令留下的内存状态。
 - 仍保留内置 `StructureTemplate` 快照作为 WorldEdit 操作异常时的兜底。
 
 ## 配置文件
@@ -309,14 +309,24 @@ Create Contraption 的组装/拆卸、矿车 NBT 和多区域判断放在独立�
 区域配置保存在：
 
 ```text
+config/minigameplayground-zones.json
+config/minigameplayground-snapshots/
+```
+
+从旧版 PVP Balance 升级时，如果新文件不存在，会自动读取并迁移：
+
+```text
+config/pvpbalance.json
 config/pvpbalance-zones.json
 config/pvpbalance-snapshots/
 ```
 
+旧命令 `/pvb`、`/pvpbalance` 仍作为兼容别名保留，新命令推荐使用 `/mgp`。
+
 通用配置：
 
 ```text
-config/pvpbalance.json
+config/minigameplayground.json
 ```
 
 ```json
@@ -329,8 +339,8 @@ config/pvpbalance.json
 - 允许设置到 `20,000,000`。
 - 超过 `20,000,000` 会自动限制到 `20,000,000` 并打印警告。
 - 超过 `1,000,000` 时会记录大体积警告。
-- 修改后执行 `/pvb reload` 生效。
-- 该上限作用于 `/pvb create`、`/pvb snapshot`、`/pvb reset`。
+- 修改后执行 `/mgp reload` 生效。
+- 该上限作用于 `/mgp create`、`/mgp snapshot`、`/mgp reset`。
 
 区域字段：
 
@@ -366,7 +376,7 @@ healDisabled = false
 - MmmMmmMmmMmm 训练假人是 `Mob`，不是 `ServerPlayer`，不会触发玩家伤害/恢复倍率，可以安全用作测试目标。
 - 区域按创建/更新时记录的维度隔离；相同坐标在不同维度互不影响。
 - 其他模组自己的方块搬运、采掘或存储系统不会被自动拦截；如需覆盖，需要单独适配。
-- Create Contraption 保护由独立模组 `pvpbalance-create` 提供；不安装它时核心模组不会加载 Create 相关 Mixin。
+- Create Contraption 保护由独立模组 `minigameplayground-create` 提供；不安装它时核心模组不会加载 Create 相关 Mixin。
 
 ## 常见问题
 
@@ -395,18 +405,18 @@ healDisabled = false
 使用显式维度 ID：
 
 ```text
-/pvb create arena_1 dimension mymod:custom_dimension ~ ~ ~ ~20 ~10 ~20
+/mgp create arena_1 dimension mymod:custom_dimension ~ ~ ~ ~20 ~10 ~20
 ```
 
-也可以用 `/execute in mymod:custom_dimension run pvb create ...`。
+也可以用 `/execute in mymod:custom_dimension run mgp create ...`。
 
 查看模组维度中的区域：
 
 ```text
-/pvb list mymod:custom_dimension
+/mgp list mymod:custom_dimension
 ```
 
-`/pvb list the_nether` 这类未写命名空间的输入会自动补全为 `minecraft:the_nether`。
+`/mgp list the_nether` 这类未写命名空间的输入会自动补全为 `minecraft:the_nether`。
 
 **WorldEdit 必须安装吗？**
 
@@ -415,11 +425,11 @@ healDisabled = false
 **Create 必须安装吗？**
 
 核心模组不强制。需要 Create Contraption 防复制时，额外安装
-`pvpbalance-create` 附属模组和服务端 Create 6.0.8+。
+`minigameplayground-create` 附属模组和服务端 Create 6.0.8+。
 
 **区域体积上限怎么改？**
 
-编辑 `config/pvpbalance.json`：
+编辑 `config/minigameplayground.json`：
 
 ```json
 {
@@ -427,4 +437,4 @@ healDisabled = false
 }
 ```
 
-然后执行 `/pvb reload`。不要设置超过 `20,000,000`，超过会被自动限制。
+然后执行 `/mgp reload`。不要设置超过 `20,000,000`，超过会被自动限制。

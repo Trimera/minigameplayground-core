@@ -1,13 +1,13 @@
-package com.pvpbalance.damage;
+package com.minigameplayground.damage;
 
-import com.pvpbalance.zone.PvpZone;
-import com.pvpbalance.zone.ZoneManager;
+import com.minigameplayground.zone.PlaygroundZone;
+import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 
 /**
- * Central damage calculation for PVP zones.
+ * Central damage calculation for playground zones.
  *
  * <p>Only the victim's final {@code getMaxHealth()} value and the zone's configured
  * damage baseline are used. Attribute modifiers from level/health mods are therefore
@@ -22,10 +22,10 @@ import net.minecraft.world.damagesource.DamageTypes;
  * the mitigated damage the player would actually take before absorption, not the raw
  * value at the start of {@code hurt()}. Absorption still applies afterwards.</p>
  */
-public final class PVPDamageProcessor {
-    public static final float DEFAULT_STANDARD_HEALTH = PvpZone.DEFAULT_DAMAGE_BASELINE;
+public final class DamageProcessor {
+    public static final float DEFAULT_STANDARD_HEALTH = PlaygroundZone.DEFAULT_DAMAGE_BASELINE;
 
-    private PVPDamageProcessor() {
+    private DamageProcessor() {
     }
 
     public static float processDamage(ServerPlayer victim, ServerPlayer attacker, float mitigatedDamage) {
@@ -36,7 +36,7 @@ public final class PVPDamageProcessor {
             return mitigatedDamage;
         }
 
-        PvpZone zone = ZoneManager.getCommonZone(victim, attacker);
+        PlaygroundZone zone = ZoneManager.getCommonZone(victim, attacker);
         if (zone == null) {
             return mitigatedDamage;
         }

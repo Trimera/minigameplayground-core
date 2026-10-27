@@ -1,9 +1,9 @@
-package com.pvpbalance.zone;
+package com.minigameplayground.zone;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.pvpbalance.PvpBalanceConfig;
-import com.pvpbalance.PvpBalanceMod;
+import com.minigameplayground.MiniGamePlaygroundConfig;
+import com.minigameplayground.MiniGamePlaygroundMod;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -32,47 +32,82 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Stores the initial block state of a PVP zone and restores it on demand.
+ * Stores the initial block state of a playground zone and restores it on demand.
  *
  * <p>If WorldEdit is installed, its clipboard format is used. Otherwise a built-in
- * vanilla structure-template snapshot is used, so {@code /pvb reset} still works on
+ * vanilla structure-template snapshot is used, so {@code /mgp reset} still works on
  * servers that do not have WorldEdit. The volume limit keeps both paths bounded.</p>
  */
 public final class ZoneSnapshots {
     private static final Path SNAPSHOT_DIR =
+            FabricLoader.getInstance().getConfigDir().resolve("minigameplayground-snapshots");
+    private static final Path LEGACY_SNAPSHOT_DIR =
             FabricLoader.getInstance().getConfigDir().resolve("pvpbalance-snapshots");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String WORLDEDIT_FORMAT = "worldedit";
     private static final String INTERNAL_FORMAT = "internal";
 
+    static {
+        migrateLegacySnapshots();
+    }
+
     private ZoneSnapshots() {
     }
 
-    public static boolean isWithinVolumeLimit(PvpZone zone) {
-        return PvpBalanceConfig.isWithinLimit(zone.getBlockVolume());
+    private static void migrateLegacySnapshots() {
+        if (Files.exists(SNAPSHOT_DIR) || !Files.isDirectory(LEGACY_SNAPSHOT_DIR)) {
+            return;
+        }
+        try {
+            Files.createDirectories(SNAPSHOT_DIR);
+            try (var paths = Files.walk(LEGACY_SNAPSHOT_DIR)) {
+                paths.forEach(source -> {
+                    try {
+                        Path target = SNAPSHOT_DIR.resolve(LEGACY_SNAPSHOT_DIR.relativize(source).toString());
+                        if (Files.isDirectory(source)) {
+                            Files.createDirectories(target);
+                        } else {
+                            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    } catch (Exception exception) {
+                        MiniGamePlaygroundMod.LOGGER.warn(
+                                "Failed to migrate snapshot file {}.", source, exception);
+                    }
+                });
+            }
+            MiniGamePlaygroundMod.LOGGER.info(
+                    "Migrated legacy snapshots from {} to {}.", LEGACY_SNAPSHOT_DIR, SNAPSHOT_DIR);
+        } catch (Exception exception) {
+            MiniGamePlaygroundMod.LOGGER.warn(
+                    "Failed to migrate legacy snapshot directory {}.", LEGACY_SNAPSHOT_DIR, exception);
+        }
+    }
+
+    public static boolean isWithinVolumeLimit(PlaygroundZone zone) {
+        return MiniGamePlaygroundConfig.isWithinLimit(zone.getBlockVolume());
     }
 
     public static boolean hasSnapshot(String zoneId) {
         return Files.isRegularFile(nbtFile(zoneId)) || Files.isRegularFile(schematicFile(zoneId));
     }
 
-    public static boolean save(ServerLevel level, PvpZone zone) {
+    public static boolean save(ServerLevel level, PlaygroundZone zone) {
         if (!zone.isDimension(level)) {
-            PvpBalanceMod.LOGGER.error(
+            MiniGamePlaygroundMod.LOGGER.error(
                     "Refusing to snapshot zone '{}': dimension mismatch (zone={}, level={}).",
                     zone.getId(), zone.getDimension(), level.dimension().location());
             return false;
         }
         if (!isWithinVolumeLimit(zone)) {
-            PvpBalanceMod.LOGGER.warn("Refusing to snapshot zone '{}': volume {} exceeds the limit {}.",
-                    zone.getId(), zone.getBlockVolume(), PvpBalanceConfig.getMaxZoneVolume());
+            MiniGamePlaygroundMod.LOGGER.warn("Refusing to snapshot zone '{}': volume {} exceeds the limit {}.",
+                    zone.getId(), zone.getBlockVolume(), MiniGamePlaygroundConfig.getMaxZoneVolume());
             return false;
         }
 
         try {
             Files.createDirectories(SNAPSHOT_DIR);
         } catch (IOException exception) {
-            PvpBalanceMod.LOGGER.error("Failed to create snapshot directory {}.", SNAPSHOT_DIR, exception);
+            MiniGamePlaygroundMod.LOGGER.error("Failed to create snapshot directory {}.", SNAPSHOT_DIR, exception);
             return false;
         }
 
@@ -84,34 +119,34 @@ public final class ZoneSnapshots {
             if (invokeWorldEditSave(level, zone, temp) && move(temp, schematic)) {
                 deleteIfExists(nbt);
                 writeMeta(zone.getId(), level, WORLDEDIT_FORMAT);
-                PvpBalanceMod.LOGGER.info("Saved WorldEdit snapshot for zone '{}'.", zone.getId());
+                MiniGamePlaygroundMod.LOGGER.info("Saved WorldEdit snapshot for zone '{}'.", zone.getId());
                 return true;
             }
             deleteIfExists(temp);
-            PvpBalanceMod.LOGGER.warn("WorldEdit snapshot failed for zone '{}'; using built-in snapshot.", zone.getId());
+            MiniGamePlaygroundMod.LOGGER.warn("WorldEdit snapshot failed for zone '{}'; using built-in snapshot.", zone.getId());
         }
 
         Path temp = tempFile(nbt);
         if (saveInternal(level, zone, temp) && move(temp, nbt)) {
             deleteIfExists(schematic);
             writeMeta(zone.getId(), level, INTERNAL_FORMAT);
-            PvpBalanceMod.LOGGER.info("Saved built-in snapshot for zone '{}'.", zone.getId());
+            MiniGamePlaygroundMod.LOGGER.info("Saved built-in snapshot for zone '{}'.", zone.getId());
             return true;
         }
         deleteIfExists(temp);
         return false;
     }
 
-    public static boolean restore(ServerLevel level, PvpZone zone) {
+    public static boolean restore(ServerLevel level, PlaygroundZone zone) {
         if (!zone.isDimension(level)) {
-            PvpBalanceMod.LOGGER.error(
+            MiniGamePlaygroundMod.LOGGER.error(
                     "Refusing to restore zone '{}': dimension mismatch (zone={}, level={}).",
                     zone.getId(), zone.getDimension(), level.dimension().location());
             return false;
         }
         if (!isWithinVolumeLimit(zone)) {
-            PvpBalanceMod.LOGGER.warn("Refusing to restore zone '{}': volume {} exceeds the limit {}.",
-                    zone.getId(), zone.getBlockVolume(), PvpBalanceConfig.getMaxZoneVolume());
+            MiniGamePlaygroundMod.LOGGER.warn("Refusing to restore zone '{}': volume {} exceeds the limit {}.",
+                    zone.getId(), zone.getBlockVolume(), MiniGamePlaygroundConfig.getMaxZoneVolume());
             return false;
         }
 
@@ -126,7 +161,7 @@ public final class ZoneSnapshots {
             if (Files.isRegularFile(nbt)) {
                 return restoreInternal(level, zone, nbt);
             }
-            PvpBalanceMod.LOGGER.error(
+            MiniGamePlaygroundMod.LOGGER.error(
                     "Zone '{}' has a WorldEdit snapshot but WorldEdit is not installed or failed to restore it.",
                     zone.getId());
             return false;
@@ -136,7 +171,7 @@ public final class ZoneSnapshots {
             return restoreInternal(level, zone, nbt);
         }
 
-        PvpBalanceMod.LOGGER.error("Zone '{}' has no snapshot file.", zone.getId());
+        MiniGamePlaygroundMod.LOGGER.error("Zone '{}' has no snapshot file.", zone.getId());
         return false;
     }
 
@@ -144,7 +179,7 @@ public final class ZoneSnapshots {
      * Resolves the zone's dimension first, then falls back to snapshot metadata and the
      * command source dimension. This lets console commands target the correct world.
      */
-    public static ServerLevel resolveLevel(MinecraftServer server, ServerLevel fallback, PvpZone zone) {
+    public static ServerLevel resolveLevel(MinecraftServer server, ServerLevel fallback, PlaygroundZone zone) {
         ResourceLocation zoneDimension = ResourceLocation.tryParse(zone.getDimension());
         if (zoneDimension != null) {
             ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, zoneDimension));
@@ -162,13 +197,13 @@ public final class ZoneSnapshots {
                     return level;
                 }
             }
-            PvpBalanceMod.LOGGER.warn("Could not resolve snapshot dimension '{}' for zone '{}'; using command dimension.",
+            MiniGamePlaygroundMod.LOGGER.warn("Could not resolve snapshot dimension '{}' for zone '{}'; using command dimension.",
                     meta.dimension, zone.getId());
         }
         return fallback;
     }
 
-    public static int clearItems(ServerLevel level, PvpZone zone) {
+    public static int clearItems(ServerLevel level, PlaygroundZone zone) {
         if (!zone.isDimension(level)) {
             return 0;
         }
@@ -190,7 +225,7 @@ public final class ZoneSnapshots {
         deleteIfExists(tempFile(schematicFile(zoneId)));
     }
 
-    private static boolean saveInternal(ServerLevel level, PvpZone zone, Path file) {
+    private static boolean saveInternal(ServerLevel level, PlaygroundZone zone, Path file) {
         try {
             StructureTemplate template = new StructureTemplate();
             template.fillFromWorld(level, zone.getMinBlockPos(), zone.getBlockSize(), false, null);
@@ -198,12 +233,12 @@ public final class ZoneSnapshots {
             NbtIo.writeCompressed(tag, file.toFile());
             return true;
         } catch (Exception exception) {
-            PvpBalanceMod.LOGGER.error("Failed to write built-in snapshot for zone '{}'.", zone.getId(), exception);
+            MiniGamePlaygroundMod.LOGGER.error("Failed to write built-in snapshot for zone '{}'.", zone.getId(), exception);
             return false;
         }
     }
 
-    private static boolean restoreInternal(ServerLevel level, PvpZone zone, Path file) {
+    private static boolean restoreInternal(ServerLevel level, PlaygroundZone zone, Path file) {
         try {
             CompoundTag tag = NbtIo.readCompressed(file.toFile());
             StructureTemplate template = new StructureTemplate();
@@ -220,32 +255,32 @@ public final class ZoneSnapshots {
                     settings, level.getRandom(), Block.UPDATE_ALL);
             return true;
         } catch (Exception exception) {
-            PvpBalanceMod.LOGGER.error("Failed to restore built-in snapshot for zone '{}'.", zone.getId(), exception);
+            MiniGamePlaygroundMod.LOGGER.error("Failed to restore built-in snapshot for zone '{}'.", zone.getId(), exception);
             return false;
         }
     }
 
-    private static boolean invokeWorldEditSave(ServerLevel level, PvpZone zone, Path file) {
+    private static boolean invokeWorldEditSave(ServerLevel level, PlaygroundZone zone, Path file) {
         return invokeWorldEdit("save", level, zone, file);
     }
 
-    private static boolean invokeWorldEditRestore(ServerLevel level, PvpZone zone, Path file) {
+    private static boolean invokeWorldEditRestore(ServerLevel level, PlaygroundZone zone, Path file) {
         return invokeWorldEdit("restore", level, zone, file);
     }
 
-    private static boolean invokeWorldEdit(String methodName, ServerLevel level, PvpZone zone, Path file) {
+    private static boolean invokeWorldEdit(String methodName, ServerLevel level, PlaygroundZone zone, Path file) {
         try {
-            Class<?> bridge = Class.forName("com.pvpbalance.compat.WorldEditBridge", true,
+            Class<?> bridge = Class.forName("com.minigameplayground.compat.WorldEditBridge", true,
                     ZoneSnapshots.class.getClassLoader());
-            Method method = bridge.getMethod(methodName, ServerLevel.class, PvpZone.class, Path.class);
+            Method method = bridge.getMethod(methodName, ServerLevel.class, PlaygroundZone.class, Path.class);
             Object result = method.invoke(null, level, zone, file);
             return result instanceof Boolean value && value;
         } catch (InvocationTargetException exception) {
             Throwable cause = exception.getCause() == null ? exception : exception.getCause();
-            PvpBalanceMod.LOGGER.warn("WorldEdit {} failed for zone '{}': {}",
+            MiniGamePlaygroundMod.LOGGER.warn("WorldEdit {} failed for zone '{}': {}",
                     methodName, zone.getId(), cause.toString());
         } catch (Throwable throwable) {
-            PvpBalanceMod.LOGGER.warn("WorldEdit {} unavailable for zone '{}': {}",
+            MiniGamePlaygroundMod.LOGGER.warn("WorldEdit {} unavailable for zone '{}': {}",
                     methodName, zone.getId(), throwable.toString());
         }
         return false;
@@ -260,7 +295,7 @@ public final class ZoneSnapshots {
             }
             return true;
         } catch (IOException exception) {
-            PvpBalanceMod.LOGGER.error("Failed to move snapshot file {} to {}.", source, target, exception);
+            MiniGamePlaygroundMod.LOGGER.error("Failed to move snapshot file {} to {}.", source, target, exception);
             return false;
         }
     }
@@ -275,7 +310,7 @@ public final class ZoneSnapshots {
             Files.writeString(metaFile, GSON.toJson(meta), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
         } catch (IOException exception) {
-            PvpBalanceMod.LOGGER.warn("Failed to write snapshot metadata for zone '{}'.", zoneId, exception);
+            MiniGamePlaygroundMod.LOGGER.warn("Failed to write snapshot metadata for zone '{}'.", zoneId, exception);
         }
     }
 
@@ -287,7 +322,7 @@ public final class ZoneSnapshots {
         try {
             return GSON.fromJson(Files.readString(metaFile, StandardCharsets.UTF_8), SnapshotMeta.class);
         } catch (Exception exception) {
-            PvpBalanceMod.LOGGER.warn("Failed to read snapshot metadata for zone '{}'.", zoneId, exception);
+            MiniGamePlaygroundMod.LOGGER.warn("Failed to read snapshot metadata for zone '{}'.", zoneId, exception);
             return null;
         }
     }
@@ -320,7 +355,7 @@ public final class ZoneSnapshots {
         try {
             Files.deleteIfExists(file);
         } catch (IOException exception) {
-            PvpBalanceMod.LOGGER.warn("Failed to delete snapshot file {}.", file, exception);
+            MiniGamePlaygroundMod.LOGGER.warn("Failed to delete snapshot file {}.", file, exception);
         }
     }
 

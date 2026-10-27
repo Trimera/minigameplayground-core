@@ -1,7 +1,7 @@
-package com.pvpbalance.mixin;
+package com.minigameplayground.mixin;
 
-import com.pvpbalance.zone.PvpZone;
-import com.pvpbalance.zone.ZoneManager;
+import com.minigameplayground.zone.PlaygroundZone;
+import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.function.Consumer;
 
 /**
- * Prevents durability loss for players standing inside a PVP zone whose zone setting
+ * Prevents durability loss for players standing inside a playground zone whose zone setting
  * requests it (the default for newly created zones).
  *
  * <p>This covers weapon attacks, armor damage from hits, shields, bows and tools
@@ -30,7 +30,7 @@ public abstract class ItemStackDurabilityMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private void pvpbalance$keepItemDurability(int amount, LivingEntity entity, Consumer<?> onBreak,
+    private void minigameplayground$keepItemDurability(int amount, LivingEntity entity, Consumer<?> onBreak,
                                                CallbackInfo ci) {
         if (entity instanceof ServerPlayer player && shouldKeepDurability(player)) {
             ci.cancel();
@@ -42,7 +42,7 @@ public abstract class ItemStackDurabilityMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private void pvpbalance$keepItemDurabilityDirect(int amount, RandomSource random, ServerPlayer player,
+    private void minigameplayground$keepItemDurabilityDirect(int amount, RandomSource random, ServerPlayer player,
                                                      CallbackInfoReturnable<Boolean> cir) {
         if (shouldKeepDurability(player)) {
             cir.setReturnValue(false);
@@ -53,7 +53,7 @@ public abstract class ItemStackDurabilityMixin {
         if (player == null) {
             return false;
         }
-        PvpZone zone = ZoneManager.getZone(player);
+        PlaygroundZone zone = ZoneManager.getZone(player);
         return zone != null && zone.isKeepDurability();
     }
 }

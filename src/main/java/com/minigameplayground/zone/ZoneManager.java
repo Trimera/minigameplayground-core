@@ -1,8 +1,8 @@
-package com.pvpbalance.zone;
+package com.minigameplayground.zone;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.pvpbalance.PvpBalanceMod;
+import com.minigameplayground.MiniGamePlaygroundMod;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
@@ -26,20 +26,22 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * In-memory registry of PVP zones, persisted to {@code config/pvpbalance-zones.json}.
+ * In-memory registry of playground zones, persisted to {@code config/minigameplayground-zones.json}.
  *
  * <p>The damage path only performs a small AABB lookup in this registry. Disk I/O is
  * limited to server startup, shutdown and administrative commands.</p>
  */
 public final class ZoneManager {
     private static final Path CONFIG_FILE =
+            FabricLoader.getInstance().getConfigDir().resolve("minigameplayground-zones.json");
+    private static final Path LEGACY_CONFIG_FILE =
             FabricLoader.getInstance().getConfigDir().resolve("pvpbalance-zones.json");
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
             .disableHtmlEscaping()
             .create();
 
-    private static final Map<String, PvpZone> ZONES = new LinkedHashMap<>();
+    private static final Map<String, PlaygroundZone> ZONES = new LinkedHashMap<>();
     private static boolean dirty;
 
     private ZoneManager() {
@@ -49,71 +51,80 @@ public final class ZoneManager {
         ZONES.clear();
         dirty = false;
 
-        if (!Files.exists(CONFIG_FILE)) {
-            PvpBalanceMod.LOGGER.info("No PVP zone config found at {}; starting with no zones.", CONFIG_FILE);
+        Path source = Files.exists(CONFIG_FILE) ? CONFIG_FILE
+                : Files.exists(LEGACY_CONFIG_FILE) ? LEGACY_CONFIG_FILE
+                : null;
+        if (source == null) {
+            MiniGamePlaygroundMod.LOGGER.info("No playground zone config found at {}; starting with no zones.", CONFIG_FILE);
             return;
         }
 
-        try (Reader reader = Files.newBufferedReader(CONFIG_FILE, StandardCharsets.UTF_8)) {
+        try (Reader reader = Files.newBufferedReader(source, StandardCharsets.UTF_8)) {
             ConfigRoot root = GSON.fromJson(reader, ConfigRoot.class);
             if (root != null && root.zones != null) {
                 for (ZoneData data : root.zones) {
                     if (data == null || !isValidId(data.id)) {
-                        PvpBalanceMod.LOGGER.warn("Skipping invalid PVP zone entry (missing/invalid id).");
+                        MiniGamePlaygroundMod.LOGGER.warn("Skipping invalid playground zone entry (missing/invalid id).");
                         continue;
                     }
                     if (!isValidHealth(data.standardHealth)
                             || !Double.isFinite(data.minX) || !Double.isFinite(data.minY)
                             || !Double.isFinite(data.minZ) || !Double.isFinite(data.maxX)
                             || !Double.isFinite(data.maxY) || !Double.isFinite(data.maxZ)) {
-                        PvpBalanceMod.LOGGER.warn("Skipping invalid PVP zone '{}' (bad bounds or damage baseline).", data.id);
+                        MiniGamePlaygroundMod.LOGGER.warn("Skipping invalid playground zone '{}' (bad bounds or damage baseline).", data.id);
                         continue;
                     }
 
-                    float restoreBaseline = PvpZone.DEFAULT_RESTORE_BASELINE;
+                    float restoreBaseline = PlaygroundZone.DEFAULT_RESTORE_BASELINE;
                     if (data.restoreBaseline != null) {
                         if (isValidHealth(data.restoreBaseline)) {
                             restoreBaseline = data.restoreBaseline;
                         } else {
-                            PvpBalanceMod.LOGGER.warn(
+                            MiniGamePlaygroundMod.LOGGER.warn(
                                     "Zone '{}' has an invalid restore baseline; using default {}.",
-                                    data.id, PvpZone.DEFAULT_RESTORE_BASELINE);
+                                    data.id, PlaygroundZone.DEFAULT_RESTORE_BASELINE);
                         }
                     }
                     boolean keepDurability = data.keepDurability == null || data.keepDurability;
                     boolean damageDisabled = data.damageDisabled != null && data.damageDisabled;
                     boolean healDisabled = data.healDisabled != null && data.healDisabled;
 
-                    String dimension = PvpZone.DEFAULT_DIMENSION;
+                    String dimension = PlaygroundZone.DEFAULT_DIMENSION;
                     if (data.dimension != null && !data.dimension.isBlank()) {
                         if (ResourceLocation.tryParse(data.dimension) != null) {
                             dimension = data.dimension;
                         } else {
-                            PvpBalanceMod.LOGGER.warn(
+                            MiniGamePlaygroundMod.LOGGER.warn(
                                     "Zone '{}' has an invalid dimension '{}'; using default {}.",
-                                    data.id, data.dimension, PvpZone.DEFAULT_DIMENSION);
+                                    data.id, data.dimension, PlaygroundZone.DEFAULT_DIMENSION);
                         }
                     }
 
-                    PvpZone zone = new PvpZone(data.id, dimension,
+                    PlaygroundZone zone = new PlaygroundZone(data.id, dimension,
                             data.minX, data.minY, data.minZ,
                             data.maxX, data.maxY, data.maxZ, data.standardHealth,
                             restoreBaseline, keepDurability, damageDisabled, healDisabled);
                     if (ZONES.put(zone.getId(), zone) != null) {
-                        PvpBalanceMod.LOGGER.warn("Duplicate PVP zone id '{}'; the later entry wins.", zone.getId());
+                        MiniGamePlaygroundMod.LOGGER.warn("Duplicate playground zone id '{}'; the later entry wins.", zone.getId());
                     }
                 }
             }
-            PvpBalanceMod.LOGGER.info("Loaded {} PVP zone(s) from {}.", ZONES.size(), CONFIG_FILE);
+            if (source.equals(LEGACY_CONFIG_FILE) && !ZONES.isEmpty()) {
+                dirty = true;
+                save();
+                MiniGamePlaygroundMod.LOGGER.info(
+                        "Migrated legacy playground zones from {} to {}.", LEGACY_CONFIG_FILE, CONFIG_FILE);
+            }
+            MiniGamePlaygroundMod.LOGGER.info("Loaded {} playground zone(s) from {}.", ZONES.size(), source);
         } catch (Exception exception) {
             ZONES.clear();
-            PvpBalanceMod.LOGGER.error("Failed to load PVP zone config from {}.", CONFIG_FILE, exception);
+            MiniGamePlaygroundMod.LOGGER.error("Failed to load playground zone config from {}.", source, exception);
         }
     }
 
     public static synchronized boolean save() {
         ConfigRoot root = new ConfigRoot();
-        for (PvpZone zone : ZONES.values()) {
+        for (PlaygroundZone zone : ZONES.values()) {
             root.zones.add(ZoneData.from(zone));
         }
 
@@ -135,10 +146,10 @@ public final class ZoneManager {
             }
 
             dirty = false;
-            PvpBalanceMod.LOGGER.info("Saved {} PVP zone(s) to {}.", ZONES.size(), CONFIG_FILE);
+            MiniGamePlaygroundMod.LOGGER.info("Saved {} playground zone(s) to {}.", ZONES.size(), CONFIG_FILE);
             return true;
         } catch (Exception exception) {
-            PvpBalanceMod.LOGGER.error("Failed to save PVP zone config to {}.", CONFIG_FILE, exception);
+            MiniGamePlaygroundMod.LOGGER.error("Failed to save playground zone config to {}.", CONFIG_FILE, exception);
             return false;
         }
     }
@@ -154,7 +165,7 @@ public final class ZoneManager {
      *
      * @return {@code true} when an existing zone was replaced
      */
-    public static synchronized boolean upsert(PvpZone zone) {
+    public static synchronized boolean upsert(PlaygroundZone zone) {
         boolean replaced = ZONES.put(zone.getId(), zone) != null;
         dirty = true;
         save();
@@ -171,7 +182,7 @@ public final class ZoneManager {
     }
 
     public static synchronized boolean setStandardHealth(String id, float standardHealth) {
-        PvpZone old = ZONES.get(id);
+        PlaygroundZone old = ZONES.get(id);
         if (old == null) {
             return false;
         }
@@ -182,7 +193,7 @@ public final class ZoneManager {
     }
 
     public static synchronized boolean setRestoreBaseline(String id, float restoreBaseline) {
-        PvpZone old = ZONES.get(id);
+        PlaygroundZone old = ZONES.get(id);
         if (old == null) {
             return false;
         }
@@ -193,7 +204,7 @@ public final class ZoneManager {
     }
 
     public static synchronized boolean setKeepDurability(String id, boolean keepDurability) {
-        PvpZone old = ZONES.get(id);
+        PlaygroundZone old = ZONES.get(id);
         if (old == null) {
             return false;
         }
@@ -204,7 +215,7 @@ public final class ZoneManager {
     }
 
     public static synchronized boolean setDamageDisabled(String id, boolean disabled) {
-        PvpZone old = ZONES.get(id);
+        PlaygroundZone old = ZONES.get(id);
         if (old == null) {
             return false;
         }
@@ -215,7 +226,7 @@ public final class ZoneManager {
     }
 
     public static synchronized boolean setHealDisabled(String id, boolean disabled) {
-        PvpZone old = ZONES.get(id);
+        PlaygroundZone old = ZONES.get(id);
         if (old == null) {
             return false;
         }
@@ -225,12 +236,12 @@ public final class ZoneManager {
         return true;
     }
 
-    public static synchronized PvpZone getZone(String id) {
+    public static synchronized PlaygroundZone getZone(String id) {
         return ZONES.get(id);
     }
 
-    public static synchronized PvpZone getZone(ServerPlayer player) {
-        for (PvpZone zone : ZONES.values()) {
+    public static synchronized PlaygroundZone getZone(ServerPlayer player) {
+        for (PlaygroundZone zone : ZONES.values()) {
             if (zone.contains(player)) {
                 return zone;
             }
@@ -240,10 +251,10 @@ public final class ZoneManager {
 
     /**
      * Returns the first zone that contains both players, or {@code null} when they are
-     * not in a shared PVP zone. This also behaves correctly for overlapping zones.
+     * not in a shared playground zone. This also behaves correctly for overlapping zones.
      */
-    public static synchronized PvpZone getCommonZone(ServerPlayer first, ServerPlayer second) {
-        for (PvpZone zone : ZONES.values()) {
+    public static synchronized PlaygroundZone getCommonZone(ServerPlayer first, ServerPlayer second) {
+        for (PlaygroundZone zone : ZONES.values()) {
             if (zone.contains(first) && zone.contains(second)) {
                 return zone;
             }
@@ -255,11 +266,11 @@ public final class ZoneManager {
      * Used by the block-drop mixins. Only block positions inside a configured zone are
      * considered; entity drops outside zones are untouched.
      */
-    public static synchronized boolean isInAnyPvpZone(Level level, BlockPos pos) {
+    public static synchronized boolean isInAnyPlaygroundZone(Level level, BlockPos pos) {
         if (level == null || level.isClientSide()) {
             return false;
         }
-        for (PvpZone zone : ZONES.values()) {
+        for (PlaygroundZone zone : ZONES.values()) {
             if (zone.containsBlock(level, pos)) {
                 return true;
             }
@@ -271,12 +282,12 @@ public final class ZoneManager {
      * Returns every zone in the given dimension whose block bounds overlap the
      * supplied world-space bounds. Used to mark assembled contraptions.
      */
-    public static synchronized List<PvpZone> getZonesIntersecting(Level level, AABB bounds) {
+    public static synchronized List<PlaygroundZone> getZonesIntersecting(Level level, AABB bounds) {
         if (level == null || level.isClientSide() || bounds == null) {
             return List.of();
         }
-        List<PvpZone> result = new ArrayList<>();
-        for (PvpZone zone : ZONES.values()) {
+        List<PlaygroundZone> result = new ArrayList<>();
+        for (PlaygroundZone zone : ZONES.values()) {
             if (zone.isDimension(level) && zone.intersectsBlockBounds(bounds)) {
                 result.add(zone);
             }
@@ -284,7 +295,7 @@ public final class ZoneManager {
         return result;
     }
 
-    public static synchronized List<PvpZone> getZones() {
+    public static synchronized List<PlaygroundZone> getZones() {
         return List.copyOf(ZONES.values());
     }
 
@@ -337,7 +348,7 @@ public final class ZoneManager {
         private Boolean damageDisabled;
         private Boolean healDisabled;
 
-        private static ZoneData from(PvpZone zone) {
+        private static ZoneData from(PlaygroundZone zone) {
             ZoneData data = new ZoneData();
             data.id = zone.getId();
             data.dimension = zone.getDimension();

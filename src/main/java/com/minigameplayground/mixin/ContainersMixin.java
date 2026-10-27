@@ -1,6 +1,6 @@
-package com.pvpbalance.mixin;
+package com.minigameplayground.mixin;
 
-import com.pvpbalance.zone.ZoneManager;
+import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.world.Container;
@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Prevents container contents (chests, barrels, etc.) from spilling out when their
- * block is removed inside a PVP zone.
+ * block is removed inside a playground zone.
  */
 @Mixin(Containers.class)
 public abstract class ContainersMixin {
@@ -22,9 +22,9 @@ public abstract class ContainersMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void pvpbalance$cancelContainerDrops(Level level, BlockPos pos, Container container,
+    private static void minigameplayground$cancelContainerDrops(Level level, BlockPos pos, Container container,
                                                        CallbackInfo ci) {
-        if (ZoneManager.isInAnyPvpZone(level, pos)) {
+        if (ZoneManager.isInAnyPlaygroundZone(level, pos)) {
             ci.cancel();
         }
     }
@@ -34,9 +34,9 @@ public abstract class ContainersMixin {
             at = @At("HEAD"),
             cancellable = true
     )
-    private static void pvpbalance$cancelItemListDrops(Level level, BlockPos pos, NonNullList<?> items,
+    private static void minigameplayground$cancelItemListDrops(Level level, BlockPos pos, NonNullList<?> items,
                                                       CallbackInfo ci) {
-        if (ZoneManager.isInAnyPvpZone(level, pos)) {
+        if (ZoneManager.isInAnyPlaygroundZone(level, pos)) {
             ci.cancel();
         }
     }

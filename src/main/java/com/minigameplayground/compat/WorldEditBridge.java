@@ -1,4 +1,4 @@
-package com.pvpbalance.compat;
+package com.minigameplayground.compat;
 
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEdit;
@@ -15,8 +15,8 @@ import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.session.ClipboardHolder;
 import com.sk89q.worldedit.world.World;
-import com.pvpbalance.PvpBalanceMod;
-import com.pvpbalance.zone.PvpZone;
+import com.minigameplayground.MiniGamePlaygroundMod;
+import com.minigameplayground.zone.PlaygroundZone;
 import net.minecraft.server.level.ServerLevel;
 
 import java.io.InputStream;
@@ -35,7 +35,7 @@ public final class WorldEditBridge {
     private WorldEditBridge() {
     }
 
-    public static boolean save(ServerLevel level, PvpZone zone, Path file) {
+    public static boolean save(ServerLevel level, PlaygroundZone zone, Path file) {
         try {
             World world = FabricAdapter.adapt(level);
             BlockVector3 min = min(zone);
@@ -56,12 +56,12 @@ public final class WorldEditBridge {
             }
             return true;
         } catch (Exception exception) {
-            PvpBalanceMod.LOGGER.error("WorldEdit snapshot failed for zone '{}'.", zone.getId(), exception);
+            MiniGamePlaygroundMod.LOGGER.error("WorldEdit snapshot failed for zone '{}'.", zone.getId(), exception);
             return false;
         }
     }
 
-    public static boolean restore(ServerLevel level, PvpZone zone, Path file) {
+    public static boolean restore(ServerLevel level, PlaygroundZone zone, Path file) {
         try (InputStream input = Files.newInputStream(file);
              ClipboardReader reader = BuiltInClipboardFormat.SPONGE_SCHEMATIC.getReader(input)) {
             Clipboard clipboard = reader.read();
@@ -79,16 +79,16 @@ public final class WorldEditBridge {
             }
             return true;
         } catch (Exception exception) {
-            PvpBalanceMod.LOGGER.error("WorldEdit restore failed for zone '{}'.", zone.getId(), exception);
+            MiniGamePlaygroundMod.LOGGER.error("WorldEdit restore failed for zone '{}'.", zone.getId(), exception);
             return false;
         }
     }
 
-    private static BlockVector3 min(PvpZone zone) {
+    private static BlockVector3 min(PlaygroundZone zone) {
         return BlockVector3.at(zone.getMinBlockX(), zone.getMinBlockY(), zone.getMinBlockZ());
     }
 
-    private static BlockVector3 max(PvpZone zone) {
+    private static BlockVector3 max(PlaygroundZone zone) {
         return BlockVector3.at(zone.getMaxBlockX(), zone.getMaxBlockY(), zone.getMaxBlockZ());
     }
 }

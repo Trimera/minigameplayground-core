@@ -1,6 +1,6 @@
-package com.pvpbalance.mixin;
+package com.minigameplayground.mixin;
 
-import com.pvpbalance.zone.ZoneManager;
+import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
@@ -15,11 +15,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.List;
 
 /**
- * Prevents vanilla pistons from pushing blocks out of a PVP zone.
+ * Prevents vanilla pistons from pushing blocks out of a playground zone.
  *
  * <p>Only the individual source block that would cross the boundary is swallowed;
  * other blocks in the same push continue to move. The swallowed block is removed
- * without drops and is therefore restored by {@code /pvb reset}. Removing it from
+ * without drops and is therefore restored by {@code /mgp reset}. Removing it from
  * the resolver's push list also stops the piston from trying to move it later in
  * the same tick.</p>
  */
@@ -36,7 +36,7 @@ public abstract class PistonStructureResolverMixin {
     public abstract Direction getPushDirection();
 
     @Inject(method = "resolve", at = @At("RETURN"))
-    private void pvpbalance$swallowBlocksCrossingZoneBoundary(CallbackInfoReturnable<Boolean> cir) {
+    private void minigameplayground$swallowBlocksCrossingZoneBoundary(CallbackInfoReturnable<Boolean> cir) {
         if (!cir.getReturnValueZ() || this.level == null || this.level.isClientSide()) {
             return;
         }
@@ -49,8 +49,8 @@ public abstract class PistonStructureResolverMixin {
         List<BlockPos> toPush = this.getToPush();
         for (BlockPos source : List.copyOf(toPush)) {
             BlockPos destination = source.relative(direction);
-            if (!ZoneManager.isInAnyPvpZone(this.level, source)
-                    || ZoneManager.isInAnyPvpZone(this.level, destination)) {
+            if (!ZoneManager.isInAnyPlaygroundZone(this.level, source)
+                    || ZoneManager.isInAnyPlaygroundZone(this.level, destination)) {
                 continue;
             }
 

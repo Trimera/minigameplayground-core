@@ -9,4 +9,4 @@ pluginManagement {
 	}
 }
 
-rootProject.name = 'pvpbalance-core'
+rootProject.name = 'minigameplayground-core'
