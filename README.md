@@ -42,9 +42,10 @@ build/libs/minigameplayground-2.0.0.jar
 安装：
 
 1. 把 jar 放入服务端的 `mods` 目录。
-2. 服务端安装 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
-3. 启动服务器。
-4. 使用 OP 权限等级 2 执行 `/mgp` 指令。
+2. 从旧版升级时，先移除旧的 `pvpbalance-*.jar`；旧配置会自动迁移。
+3. 服务端安装 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
+4. 启动服务器。
+5. 使用 OP 权限等级 2 执行 `/mgp` 指令。
 
 如需 Create Contraption 防复制，再安装同目录下的
 `minigameplayground-create` 附属模组和服务端 Create 6.0.8+。
