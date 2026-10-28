@@ -334,9 +334,26 @@ public final class ZoneSnapshots {
             stripPlayerPassengers(tag);
             try {
                 Entity entity = EntityType.loadEntityRecursive(tag, level, loaded -> loaded);
-                if (entity == null || !level.addFreshEntity(entity)) {
+                if (entity == null) {
                     MiniGamePlaygroundMod.LOGGER.warn(
                             "Failed to restore snapshot entity '{}'.", tag.getString("id"));
+                    continue;
+                }
+
+                // The entity being replaced is discarded in the same tick. Some
+                // entity implementations (notably Create contraptions) keep their
+                // old UUID in the entity manager briefly, so adding the snapshot
+                // entity with the saved UUID can fail silently. Restored entities
+                // are new identities, not continuations of the discarded instance.
+                entity.getSelfAndPassengers().forEach(loaded -> {
+                    if (!(loaded instanceof Player)) {
+                        loaded.setUUID(UUID.randomUUID());
+                    }
+                });
+
+                if (!level.addFreshEntity(entity)) {
+                    MiniGamePlaygroundMod.LOGGER.warn(
+                            "Failed to add restored snapshot entity '{}'.", tag.getString("id"));
                     continue;
                 }
                 restored++;
