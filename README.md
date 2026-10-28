@@ -40,7 +40,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.2.0.jar
+build/libs/minigameplayground-2.2.1.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。

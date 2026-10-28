@@ -470,6 +470,16 @@ public final class ZoneSnapshots {
             MiniGamePlaygroundMod.LOGGER.info(
                     "Restored {} snapshot entities for zone '{}'.", restored, zone.getId());
         }
+
+        for (ZoneSnapshotExtension extension : extensions()) {
+            try {
+                extension.afterRestore(level, zone);
+            } catch (Exception exception) {
+                MiniGamePlaygroundMod.LOGGER.warn(
+                        "Snapshot extension '{}' failed its post-restore hook for zone '{}'.",
+                        extension.id(), zone.getId(), exception);
+            }
+        }
         return true;
     }
 
