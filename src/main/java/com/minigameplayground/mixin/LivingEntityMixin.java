@@ -1,5 +1,6 @@
 package com.minigameplayground.mixin;
 
+import com.minigameplayground.damage.DamageFallbackContext;
 import com.minigameplayground.damage.DamageProcessor;
 import com.minigameplayground.damage.HealingProcessor;
 import com.minigameplayground.zone.PlaygroundZone;
@@ -60,6 +61,7 @@ public abstract class LivingEntityMixin {
         }
 
         cir.setReturnValue(DamageProcessor.processDamage(victim, attacker, cir.getReturnValue()));
+        DamageFallbackContext.markMagicApplied(victim, source);
     }
 
     @Inject(method = "heal", at = @At("HEAD"), cancellable = true)

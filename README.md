@@ -8,6 +8,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 - 不修改玩家的 `MAX_HEALTH` 属性。
 - 不取消伤害后重新施加，避免递归伤害和击退异常。
 - 兼容 TaCZ、Spell Engine、Better Combat、Simply Swords 等走原版伤害/治疗流程的模组。
+- 对其他模组在 `getDamageAfterMagicAbsorb` 返回点覆盖返回值、导致原版回调被跳过的情况，提供最终生命值兜底缩放。
 - 阻止原版活塞把区域方块带出区域后复制，并阻止机械钻头/锯等 `Block.getDrops` 路径在区域内刷取掉落物。
 - Create Contraption 的防复制作为独立附属模组 `minigameplayground-create` 提供。
 
@@ -34,7 +35,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.0.1.jar
+build/libs/minigameplayground-2.0.2.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
