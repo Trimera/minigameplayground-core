@@ -5,6 +5,7 @@ import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.Entity;
 
 /**
  * Central damage calculation for playground zones.
@@ -32,18 +33,43 @@ public final class DamageProcessor {
         if (victim == null || attacker == null || victim == attacker) {
             return mitigatedDamage;
         }
-        if (mitigatedDamage <= 0.0F) {
+        PlaygroundZone zone = ZoneManager.getCommonZone(victim, attacker);
+        return processDamage(victim, zone, mitigatedDamage);
+    }
+
+    /**
+     * Resolves the zone mode from the victim and, for {@code pvp} zones, also from the
+     * attacking player. In {@code all} mode the victim's zone is sufficient, so
+     * non-player, environmental, self-inflicted and ownerless damage is balanced too.
+     */
+    public static float processDamage(ServerPlayer victim, DamageSource source, float mitigatedDamage) {
+        if (victim == null || source == null || isUnstoppable(source)) {
             return mitigatedDamage;
         }
 
-        PlaygroundZone zone = ZoneManager.getCommonZone(victim, attacker);
-        if (zone == null) {
+        PlaygroundZone victimZone = ZoneManager.getZone(victim);
+        if (victimZone == null) {
+            return mitigatedDamage;
+        }
+        if (victimZone.isAllDamageMode()) {
+            return processDamage(victim, victimZone, mitigatedDamage);
+        }
+
+        Entity attackerEntity = source.getEntity();
+        if (!(attackerEntity instanceof ServerPlayer attacker) || attacker == victim) {
+            return mitigatedDamage;
+        }
+        PlaygroundZone common = ZoneManager.getCommonZone(victim, attacker);
+        return processDamage(victim, common, mitigatedDamage);
+    }
+
+    private static float processDamage(ServerPlayer victim, PlaygroundZone zone, float mitigatedDamage) {
+        if (mitigatedDamage <= 0.0F || zone == null) {
             return mitigatedDamage;
         }
         if (zone.isDamageDisabled()) {
             return 0.0F;
         }
-
         return calculateScaledValue(mitigatedDamage, victim.getMaxHealth(), zone.getStandardHealth());
     }
 

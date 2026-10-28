@@ -6,7 +6,7 @@
 ./gradlew build
 ```
 
-产物：`build/libs/minigameplayground-2.0.2.jar`
+产物：`build/libs/minigameplayground-2.1.0.jar`
 
 当前项目固定使用：
 
@@ -18,7 +18,7 @@
 
 ## 安装
 
-把 `minigameplayground-2.0.2.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
+把 `minigameplayground-2.1.0.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
 服务端需要 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
 模组只处理服务端伤害、保护与指令，不添加物品、方块或客户端界面。
 
@@ -37,6 +37,7 @@ Create Contraption 防复制由独立附属模组 `minigameplayground-create` �
 /mgp list [维度ID]
 /mgp damage <区域ID> <伤害基准|disable>
 /mgp heal <区域ID> <恢复基准|disable>
+/mgp damage_mode <区域ID> <pvp|all>
 /mgp unbreakable <区域ID> <true|false>
 /mgp reset <区域ID>
 /mgp snapshot <区域ID>
@@ -106,8 +107,8 @@ Create Contraption 防复制由独立附属模组 `minigameplayground-create` �
 4. 盔甲、盔甲韧性
 5. 抗性提升、保护类附魔
 
-1. 受击者和攻击者必须都是玩家。
-2. 两人必须处于**同一个**游戏区域内。重叠区域会取第一个同时包含两人的区域。
+1. 默认 `pvp` 模式下，受击者和攻击者必须都是玩家，且处于**同一个**游戏区域。
+2. `all` 模式下，只要求受击者是玩家且位于区域内；攻击者可以是玩家、生物、投射物、无来源或自己，摔落/火焰等环境伤害也会处理。虚空伤害和 `minecraft:generic_kill` 不处理。
 3. 读取受击者最终的 `getMaxHealth()`，包含等级、饰品、Puffish Attributes 等模组对生命上限的修改。
 4. 如果**减伤后基础伤害** `< 区域伤害基准`：
    * 最终伤害 = `基础伤害 × 受击者最大生命值 / 伤害基准`
@@ -180,6 +181,16 @@ Create Contraption 防复制由独立附属模组 `minigameplayground-create` �
 
 模组不会修改 `MAX_HEALTH` 属性，也不会取消后重新施加伤害，因此不会触发递归伤害，
 也不会破坏击退、横扫、枪械命中判定等依赖 `hurt()` 返回值的逻辑。
+
+## 伤害模式
+
+```text
+/mgp damage_mode <区域ID> <pvp|all>
+```
+
+- `pvp`（默认）：只平衡同一区域内的玩家对玩家伤害。
+- `all`：只要求受击者在区域内，非玩家攻击、无来源伤害、自伤和环境伤害也会平衡。
+- 两种模式都不会处理虚空伤害和 `/kill`；区域 `damage disable` 仍然优先。
 
 ## 安全区与禁用
 

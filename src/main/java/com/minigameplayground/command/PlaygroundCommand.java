@@ -11,6 +11,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.minigameplayground.MiniGamePlaygroundConfig;
 import com.minigameplayground.damage.DamageProcessor;
 import com.minigameplayground.damage.HealingProcessor;
+import com.minigameplayground.zone.DamageMode;
 import com.minigameplayground.zone.PlaygroundZone;
 import com.minigameplayground.zone.ZoneManager;
 import com.minigameplayground.zone.ZoneSnapshots;
@@ -51,6 +52,12 @@ public final class PlaygroundCommand {
         for (ResourceKey<Level> key : context.getSource().getServer().levelKeys()) {
             builder.suggest(key.location().toString());
         }
+        return builder.buildFuture();
+    };
+
+    private static final SuggestionProvider<CommandSourceStack> DAMAGE_MODE_SUGGESTIONS = (context, builder) -> {
+        builder.suggest("pvp");
+        builder.suggest("all");
         return builder.buildFuture();
     };
 
@@ -100,6 +107,7 @@ public final class PlaygroundCommand {
 
         root.then(damageBaselineCommand());
         root.then(healBaselineCommand());
+        root.then(damageModeCommand());
 
         root.then(Commands.literal("unbreakable")
                 .then(Commands.argument("id", StringArgumentType.string())
@@ -158,6 +166,16 @@ public final class PlaygroundCommand {
                                 .executes(PlaygroundCommand::setHealBaseline)));
     }
 
+    private static LiteralArgumentBuilder<CommandSourceStack> damageModeCommand() {
+        return Commands.literal("damage_mode")
+                .then(Commands.argument("id", StringArgumentType.string())
+                        .suggests(ZONE_SUGGESTIONS)
+                        .executes(PlaygroundCommand::showDamageMode)
+                        .then(Commands.argument("mode", StringArgumentType.word())
+                                .suggests(DAMAGE_MODE_SUGGESTIONS)
+                                .executes(PlaygroundCommand::setDamageMode)));
+    }
+
     private static int create(CommandContext<CommandSourceStack> context) {
         return create(context, context.getSource().getLevel());
     }
@@ -196,12 +214,14 @@ public final class PlaygroundCommand {
         boolean keepDurability = existing == null || existing.isKeepDurability();
         boolean damageDisabled = existing != null && existing.isDamageDisabled();
         boolean healDisabled = existing != null && existing.isHealDisabled();
+        DamageMode damageMode = existing == null ? DamageMode.PVP : existing.getDamageMode();
 
         String dimension = level.dimension().location().toString();
         PlaygroundZone zone = new PlaygroundZone(id, dimension,
                 pos1.x, pos1.y, pos1.z,
                 pos2.x, pos2.y, pos2.z,
-                damageBaseline, restoreBaseline, keepDurability, damageDisabled, healDisabled);
+                damageBaseline, restoreBaseline, keepDurability, damageDisabled, healDisabled,
+                damageMode);
 
         if (!ZoneSnapshots.isWithinVolumeLimit(zone)) {
             source.sendFailure(Component.literal(String.format(Locale.ROOT,
@@ -300,6 +320,44 @@ public final class PlaygroundCommand {
 
         source.sendSuccess(() -> Component.literal(
                 "[MGP] 区域 '" + id + "' 的伤害已禁用（安全区，虚空伤害与 /kill 仍生效）。"), true);
+        return 1;
+    }
+
+    private static int showDamageMode(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        PlaygroundZone zone = ZoneManager.getZone(id);
+        if (zone == null) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 当前伤害模式: %s (%s)。",
+                zone.getId(), zone.getDamageMode().getDisplayName(),
+                zone.getDamageMode().getId())), false);
+        return 1;
+    }
+
+    private static int setDamageMode(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        String modeId = StringArgumentType.getString(context, "mode").trim();
+        DamageMode mode = DamageMode.fromId(modeId);
+        if (mode == null) {
+            source.sendFailure(Component.literal(
+                    "[MGP] 伤害模式必须是 pvp 或 all。"));
+            return 0;
+        }
+        if (!ZoneManager.setDamageMode(id, mode)) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+
+        String message = mode == DamageMode.ALL
+                ? "[MGP] 区域 '" + id + "' 已设为 all：区域内玩家受到的所有伤害（除虚空和 /kill）都会应用平衡。"
+                : "[MGP] 区域 '" + id + "' 已设为 pvp：只平衡同一区域内的玩家对玩家伤害。";
+        source.sendSuccess(() -> Component.literal(message), true);
         return 1;
     }
 
@@ -570,6 +628,11 @@ public final class PlaygroundCommand {
                 " /mgp heal <区域ID> <恢复基准|disable>",
                 "   设置恢复基准，或禁用区域内所有治疗。",
                 "   设为数值会重新启用恢复。",
+                " /mgp damage_mode <区域ID> <pvp|all>",
+                "   设置该区域的伤害平衡模式；不填模式时显示当前值。",
+                "   pvp = 只平衡同一区域内的玩家对玩家伤害（默认）。",
+                "   all = 只要求受害者在区域内；玩家、生物、投射物、无来源、自伤和环境伤害都平衡。",
+                "   无论哪种模式，虚空伤害和 /kill 都不受平衡影响。",
                 " /mgp unbreakable <区域ID> <true|false>",
                 "   true = 不消耗物品耐久（默认）；false = 正常消耗耐久。",
                 " /mgp reset <区域ID>",
@@ -595,7 +658,7 @@ public final class PlaygroundCommand {
                 "          吸收（黄色爱心）在倍率之后结算，因此达到基准仍可能被吸收挡住。",
                 "          生命上限高于基准时增伤/增加治疗，反之减伤/降低治疗。",
                 "快照限制: 单个区域最大 " + MiniGamePlaygroundConfig.getMaxZoneVolume() + " 个方块。",
-                "提示: 只有攻击者和受击者处于同一个游戏区域时，伤害倍率才会生效。"
+                "提示: pvp 模式要求攻击者和受击者在同一区域；all 模式只要求受击者在区域内。"
         };
         for (String line : lines) {
             source.sendSuccess(() -> Component.literal(line), false);

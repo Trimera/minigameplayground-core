@@ -35,7 +35,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.0.2.jar
+build/libs/minigameplayground-2.1.0.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -85,6 +85,7 @@ build/libs/minigameplayground-2.0.2.jar
 | `/mgp list [维度ID]` | 列出全部区域，或只列出指定维度的区域；支持 `the_nether` 简写 |
 | `/mgp damage <区域ID> <伤害基准\|disable>` | 设置伤害基准，或禁用区域内伤害 |
 | `/mgp heal <区域ID> <恢复基准\|disable>` | 设置恢复基准，或禁用区域内治疗 |
+| `/mgp damage_mode <区域ID> <pvp\|all>` | 设置该区域的伤害平衡模式；不填模式时查询当前值 |
 | `/mgp unbreakable <区域ID> <true\|false>` | 开启/关闭区域内耐久保护 |
 | `/mgp reset <区域ID>` | 清除掉落物并恢复地形快照 |
 | `/mgp snapshot <区域ID>` | 重新生成当前地形快照 |
@@ -226,7 +227,8 @@ build/libs/minigameplayground-2.0.2.jar
 - 超过伤害基准的部分不再参与计算，避免浮点溢出。
 - 结果保留两位小数。
 - 四舍五入为 `0.00` 时仍会走原版受击流程，保留受击动画和音效，并且仍然消耗原版受击冷却。
-- 只有受击者和攻击者处于同一个游戏区域时，伤害倍率才会生效。
+- 默认 `pvp` 模式：只有受击者和攻击者处于同一个游戏区域时，伤害倍率才会生效。
+- `all` 模式：只要受击者在区域内，玩家、生物、投射物、无来源、自伤和环境伤害都会平衡；虚空伤害和 `/kill` 仍然跳过。
 
 说明：
 

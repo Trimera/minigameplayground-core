@@ -7,7 +7,6 @@ import com.minigameplayground.zone.PlaygroundZone;
 import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -55,12 +54,11 @@ public abstract class LivingEntityMixin {
             return;
         }
 
-        Entity attackerEntity = source.getEntity();
-        if (!(attackerEntity instanceof ServerPlayer attacker)) {
-            return;
+        float before = cir.getReturnValue();
+        float scaled = DamageProcessor.processDamage(victim, source, before);
+        if (scaled != before) {
+            cir.setReturnValue(scaled);
         }
-
-        cir.setReturnValue(DamageProcessor.processDamage(victim, attacker, cir.getReturnValue()));
         DamageFallbackContext.markMagicApplied(victim, source);
     }
 

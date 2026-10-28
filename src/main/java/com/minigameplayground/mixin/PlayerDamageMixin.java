@@ -6,7 +6,6 @@ import com.minigameplayground.zone.PlaygroundZone;
 import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -53,16 +52,12 @@ public abstract class PlayerDamageMixin {
                 return;
             }
 
-            Entity attackerEntity = source.getEntity();
-            if (!(attackerEntity instanceof ServerPlayer attacker)) {
-                return;
-            }
-            PlaygroundZone zone = ZoneManager.getCommonZone(victim, attacker);
-            if (zone == null || zone.isDamageDisabled()) {
+            PlaygroundZone victimZone = ZoneManager.getZone(victim);
+            if (victimZone == null || victimZone.isDamageDisabled()) {
                 return;
             }
 
-            float scaledLoss = DamageProcessor.processDamage(victim, attacker, healthLost);
+            float scaledLoss = DamageProcessor.processDamage(victim, source, healthLost);
             if (!Float.isFinite(scaledLoss) || scaledLoss == healthLost) {
                 return;
             }
