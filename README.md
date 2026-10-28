@@ -2,7 +2,12 @@
 
 Minecraft 1.20.1 / Fabric 服务端小游戏场地搭建与玩家对战平衡工具。
 
-MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动态调整玩家对战伤害与治疗，并提供区域保护、耐久保护、地形快照和场地重置功能。
+MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动态调整玩家受到的伤害与治疗，并提供区域保护、耐久保护、地形快照和场地重置功能。
+
+每个 playground 可以独立选择伤害模式：
+
+- `pvp`：只平衡同一区域内的玩家对玩家伤害；
+- `all`：只要求受击者在区域内，玩家、生物、投射物、无来源、自伤和环境伤害都参与平衡。
 
 - 纯服务端模组，客户端不需要安装。
 - 不修改玩家的 `MAX_HEALTH` 属性。
@@ -69,6 +74,9 @@ build/libs/minigameplayground-2.1.0.jar
 # 4. 查看某个玩家的倍率
 /mgp damage_rate Steve arena_1
 /mgp heal_rate Steve arena_1
+
+# 5. 设置伤害模式（默认 pvp）
+/mgp damage_mode arena_1 all
 ```
 
 ## 指令
@@ -104,8 +112,9 @@ build/libs/minigameplayground-2.1.0.jar
 - 新区域的维度取执行命令时所在的维度。
 - 新区域默认伤害基准 `20.0`。
 - 新区域默认恢复基准 `20.0`。
+- 新区域默认伤害模式为 `pvp`。
 - 新区域默认开启耐久保护，即不消耗物品耐久。
-- 再次对同一 ID 执行 `create` 会更新范围、维度和快照，保留原有基准、耐久和 disable 设置。
+- 再次对同一 ID 执行 `create` 会更新范围、维度和快照，保留原有基准、耐久、disable 和伤害模式设置。
 - 单个区域体积上限由 `config/minigameplayground.json` 的 `maxZoneVolume` 控制，默认 `500,000`，最大 `20,000,000`。
 
 控制台默认位于主世界。可以在其他维度创建区域：
@@ -194,6 +203,21 @@ build/libs/minigameplayground-2.1.0.jar
 - `false`：正常消耗耐久。
 
 控制范围是区域内玩家的所有可损坏物品，包括武器、盔甲、盾牌、弓弩和工具。
+
+## 伤害模式
+
+每个区域独立保存伤害模式：
+
+```text
+/mgp damage_mode <区域ID> pvp|all
+```
+
+- `pvp`（默认）：受击者和攻击者必须是玩家，且双方位于同一区域。
+- `all`：只要受击者是玩家且位于区域内，玩家、僵尸/骷髅等生物、投射物、无来源伤害、自伤以及摔落/火焰/岩浆等环境伤害都会平衡。
+- 两种模式都跳过虚空伤害和 `minecraft:generic_kill`。
+- 区域 `damage disable` 仍然优先，会取消普通伤害。
+
+`all` 会放大环境伤害：例如伤害基准 2、最大生命 100 时，1 点摔落伤害会变成 50。请根据场地用途选择。
 
 ## 伤害基准
 
@@ -356,6 +380,7 @@ config/minigameplayground.json
 | `keepDurability` | `true` = 不消耗耐久 |
 | `damageDisabled` | `true` = 禁用区域伤害 |
 | `healDisabled` | `true` = 禁用区域治疗 |
+| `damageMode` | `"pvp"` = 仅玩家对玩家；`"all"` = 所有伤害来源 |
 
 旧配置缺少新字段时使用默认值：
 
@@ -365,6 +390,7 @@ restoreBaseline = 20.0
 keepDurability = true
 damageDisabled = false
 healDisabled = false
+damageMode = "pvp"
 ```
 
 伤害和恢复计算只读取内存，不会在战斗过程中读取磁盘。
@@ -375,8 +401,10 @@ healDisabled = false
 - 恢复缩放拦截 `LivingEntity.heal(float)`。
 - 耐久保护拦截 `ItemStack.hurtAndBreak(...)` 和 `ItemStack.hurt(...)`。
 - TaCZ 子弹最终走 `Entity.hurt(...)` / `LivingEntity.hurt(...)`，因此可以覆盖。
-- Spell Engine、Better Combat、Simply Swords、Puffish Attributes 等走原版流程的模组可以覆盖。
+- Spell Engine、Better Combat、Simply Swords、Puffish Attributes、SimplySkills 等走原版流程的模组可以覆盖。
+- SimplySkills 在 `getDamageAfterMagicAbsorb` 返回时改写返回值并取消后续回调；本模组会在 `actuallyHurt` 的最终生命值处兜底，因此 `pvp` 和 `all` 模式下都不会漏掉有效伤害。
 - 完全绕过 `hurt()` / `heal()`、直接写生命值的模组无法拦截。
+- `all` 模式还会处理无来源伤害和非玩家来源伤害；`pvp` 模式不会。
 - MmmMmmMmmMmm 训练假人是 `Mob`，不是 `ServerPlayer`，不会触发玩家伤害/恢复倍率，可以安全用作测试目标。
 - 区域按创建/更新时记录的维度隔离；相同坐标在不同维度互不影响。
 - 其他模组自己的方块搬运、采掘或存储系统不会被自动拦截；如需覆盖，需要单独适配。
@@ -408,7 +436,10 @@ healDisabled = false
 
 因此基准 2.0 时，目标通常一两下就会死亡；死亡/重生或被打出区域后，后续攻击自然没有“共同区域内的有效命中”。测试请使用 `damage 10` 或 `damage 20`。
 
-另外，原版受击冷却约 0.5 秒（20 tick）；服务器 TPS 较低时，实际等待时间会更长。同一目标冷却内的后续攻击会被原版忽略。离开/重新进入区域通常只是让时间间隔超过冷却。等待有效冷却、双方仍在同一区域后，每次有效命中都会正常应用倍率。
+另外，原版受击冷却约 0.5 秒（20 tick）；服务器 TPS 较低时，实际等待时间会更长。同一目标冷却内的后续攻击会被原版忽略。等待有效冷却后，每次有效命中都会正常应用倍率。
+
+- `pvp` 模式还要求双方仍在同一区域；
+- `all` 模式只要求受击者仍在区域内。
 
 **`damage disable` 后为什么还能被虚空或 `/kill` 杀死？**
 

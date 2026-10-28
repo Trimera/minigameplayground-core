@@ -328,12 +328,12 @@ config/minigameplayground-snapshots/<区域ID哈希>.meta.json
 - 修改后执行 `/mgp reload` 生效
 - 作用于 `create`、`snapshot`、`reset`
 
-每个区域配置包含 `dimension`、AABB 坐标、`standardHealth`、`restoreBaseline`、`keepDurability`、`damageDisabled` 和 `healDisabled`。
+每个区域配置包含 `dimension`、AABB 坐标、`standardHealth`、`restoreBaseline`、`keepDurability`、`damageDisabled`、`healDisabled` 和 `damageMode`。
 
 启动服务器时加载区域到内存，执行创建、删除、修改伤害/恢复基准、disable 状态或耐久设置时立即原子写回磁盘。
 伤害/恢复计算路径只做内存 AABB 判断，不读取磁盘。快照仅在创建、`/mgp snapshot` 和 `/mgp reset` 时读写。
 
-旧版配置缺少 `dimension`、`restoreBaseline`、`keepDurability`、`damageDisabled` 或 `healDisabled` 时，会分别自动回退为 `minecraft:overworld`、`20.0`、`true`、`false`、`false`。
+旧版配置缺少 `dimension`、`restoreBaseline`、`keepDurability`、`damageDisabled`、`healDisabled` 或 `damageMode` 时，会分别自动回退为 `minecraft:overworld`、`20.0`、`true`、`false`、`false`、`"pvp"`。
 
 ## 已验证场景
 
