@@ -8,12 +8,17 @@ import com.minigameplayground.RestoreContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
@@ -29,15 +34,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
- * Stores the initial block state of a playground zone and restores it on demand.
+ * Stores the initial block and entity state of a playground zone and restores it on demand.
  *
- * <p>If WorldEdit is installed, its clipboard format is used. Otherwise a built-in
- * vanilla structure-template snapshot is used, so {@code /mgp reset} still works on
- * servers that do not have WorldEdit. The volume limit keeps both paths bounded.</p>
+ * <p>If WorldEdit is installed, its clipboard format is used for blocks. Otherwise a
+ * built-in vanilla structure-template snapshot is used, so {@code /mgp reset} still works
+ * on servers that do not have WorldEdit. Non-player entity snapshots live in separate
+ * NBT files; compatibility addons can register a {@link ZoneSnapshotExtension} for their
+ * own entity types. The volume limit keeps block snapshots bounded.</p>
  */
 public final class ZoneSnapshots {
     private static final Path SNAPSHOT_DIR =
@@ -47,12 +56,35 @@ public final class ZoneSnapshots {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String WORLDEDIT_FORMAT = "worldedit";
     private static final String INTERNAL_FORMAT = "internal";
+    private static final int ENTITY_SNAPSHOT_VERSION = 1;
+    private static final List<ZoneSnapshotExtension> EXTENSIONS = new ArrayList<>();
 
     static {
         migrateLegacySnapshots();
     }
 
     private ZoneSnapshots() {
+    }
+
+    public static synchronized void registerExtension(ZoneSnapshotExtension extension) {
+        if (extension == null || extension.id() == null || extension.id().isBlank()) {
+            MiniGamePlaygroundMod.LOGGER.warn("Ignoring invalid zone snapshot extension.");
+            return;
+        }
+        for (ZoneSnapshotExtension existing : EXTENSIONS) {
+            if (existing.id().equals(extension.id())) {
+                MiniGamePlaygroundMod.LOGGER.warn(
+                        "Replacing duplicate zone snapshot extension '{}'.", extension.id());
+                EXTENSIONS.remove(existing);
+                break;
+            }
+        }
+        EXTENSIONS.add(extension);
+        MiniGamePlaygroundMod.LOGGER.info("Registered zone snapshot extension '{}'.", extension.id());
+    }
+
+    private static synchronized List<ZoneSnapshotExtension> extensions() {
+        return List.copyOf(EXTENSIONS);
     }
 
     private static void migrateLegacySnapshots() {
@@ -120,6 +152,11 @@ public final class ZoneSnapshots {
             if (invokeWorldEditSave(level, zone, temp) && move(temp, schematic)) {
                 deleteIfExists(nbt);
                 writeMeta(zone.getId(), level, WORLDEDIT_FORMAT);
+                if (!saveEntitySnapshots(level, zone)) {
+                    MiniGamePlaygroundMod.LOGGER.error(
+                            "Failed to save entity snapshot for zone '{}'.", zone.getId());
+                    return false;
+                }
                 MiniGamePlaygroundMod.LOGGER.info("Saved WorldEdit snapshot for zone '{}'.", zone.getId());
                 return true;
             }
@@ -131,11 +168,245 @@ public final class ZoneSnapshots {
         if (saveInternal(level, zone, temp) && move(temp, nbt)) {
             deleteIfExists(schematic);
             writeMeta(zone.getId(), level, INTERNAL_FORMAT);
+            if (!saveEntitySnapshots(level, zone)) {
+                MiniGamePlaygroundMod.LOGGER.error(
+                        "Failed to save entity snapshot for zone '{}'.", zone.getId());
+                return false;
+            }
             MiniGamePlaygroundMod.LOGGER.info("Saved built-in snapshot for zone '{}'.", zone.getId());
             return true;
         }
         deleteIfExists(temp);
         return false;
+    }
+
+    private static boolean saveEntitySnapshots(ServerLevel level, PlaygroundZone zone) {
+        ListTag baseEntities = snapshotEntityNbt(level, zone, entity -> !isHandledEntity(entity));
+        if (!writeEntityData(baseEntityFile(zone.getId()), baseEntities)) {
+            return false;
+        }
+
+        for (ZoneSnapshotExtension extension : extensions()) {
+            ListTag entities = extension.saveEntities(level, zone);
+            if (entities == null) {
+                return false;
+            }
+            if (!writeEntityData(extensionEntityFile(zone.getId(), extension.id()), entities)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean hasEntitySnapshot(PlaygroundZone zone) {
+        if (Files.isRegularFile(baseEntityFile(zone.getId()))) {
+            return true;
+        }
+        for (ZoneSnapshotExtension extension : extensions()) {
+            if (Files.isRegularFile(extensionEntityFile(zone.getId(), extension.id()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static EntitySnapshotData readEntitySnapshots(PlaygroundZone zone) {
+        Path baseFile = baseEntityFile(zone.getId());
+        boolean anyExtensionFile = false;
+        for (ZoneSnapshotExtension extension : extensions()) {
+            if (Files.isRegularFile(extensionEntityFile(zone.getId(), extension.id()))) {
+                anyExtensionFile = true;
+                break;
+            }
+        }
+        if (!Files.isRegularFile(baseFile) && !anyExtensionFile) {
+            return null;
+        }
+
+        ListTag base = new ListTag();
+        if (Files.isRegularFile(baseFile)) {
+            base = readEntityData(baseFile);
+            if (base == null) {
+                return null;
+            }
+        }
+
+        List<EntitySnapshotExtensionData> extensionData = new ArrayList<>();
+        for (ZoneSnapshotExtension extension : extensions()) {
+            Path file = extensionEntityFile(zone.getId(), extension.id());
+            if (!Files.isRegularFile(file)) {
+                continue;
+            }
+            ListTag entities = readEntityData(file);
+            if (entities == null) {
+                return null;
+            }
+            extensionData.add(new EntitySnapshotExtensionData(extension, entities));
+        }
+        return new EntitySnapshotData(base, extensionData);
+    }
+
+    private static int clearSnapshotEntities(ServerLevel level, PlaygroundZone zone) {
+        int cleared = clearEntities(level, zone, entity -> !isHandledEntity(entity));
+        for (ZoneSnapshotExtension extension : extensions()) {
+            extension.clearEntities(level, zone);
+        }
+        return cleared;
+    }
+
+    private static int restoreSnapshotEntities(ServerLevel level, PlaygroundZone zone,
+                                               EntitySnapshotData data) {
+        int restored = restoreEntityNbt(level, data.baseEntities);
+        for (EntitySnapshotExtensionData extensionData : data.extensions) {
+            restored += restoreEntityNbt(level, extensionData.entities);
+        }
+        return restored;
+    }
+
+    public static ListTag snapshotEntityNbt(ServerLevel level, PlaygroundZone zone,
+                                            Predicate<Entity> filter) {
+        ListTag entities = new ListTag();
+        if (level == null || zone == null || !zone.isDimension(level)) {
+            return entities;
+        }
+        AABB box = zone.getBlockBounds();
+        for (Entity entity : level.getEntities((Entity) null, box,
+                candidate -> !(candidate instanceof Player)
+                        && candidate.getVehicle() == null
+                        && filter.test(candidate))) {
+            CompoundTag tag = saveEntityNbt(entity);
+            if (tag != null) {
+                entities.add(tag);
+            }
+        }
+        return entities;
+    }
+
+    /**
+     * Removes non-player entities in a zone. Players riding any removed vehicle are
+     * dismounted first so reset never leaves a player attached to a discarded entity.
+     */
+    public static int clearEntities(ServerLevel level, PlaygroundZone zone, Predicate<Entity> filter) {
+        if (level == null || zone == null || !zone.isDimension(level)) {
+            return 0;
+        }
+        AABB box = zone.getBlockBounds();
+        List<Entity> entities = new ArrayList<>(level.getEntities((Entity) null, box,
+                candidate -> !(candidate instanceof Player) && filter.test(candidate)));
+
+        for (Entity entity : entities) {
+            for (Entity passenger : List.copyOf(entity.getPassengers())) {
+                if (passenger instanceof Player player) {
+                    player.stopRiding();
+                }
+            }
+        }
+        for (Entity entity : entities) {
+            entity.discard();
+        }
+        return entities.size();
+    }
+
+    public static CompoundTag saveEntityNbt(Entity entity) {
+        if (entity == null || entity instanceof Player) {
+            return null;
+        }
+        CompoundTag tag = new CompoundTag();
+        if (!entity.save(tag)) {
+            return null;
+        }
+        stripPlayerPassengers(tag);
+        return tag;
+    }
+
+    public static int restoreEntityNbt(ServerLevel level, ListTag entities) {
+        if (level == null || entities == null || entities.isEmpty()) {
+            return 0;
+        }
+        int restored = 0;
+        for (Tag element : entities) {
+            if (!(element instanceof CompoundTag tag)) {
+                continue;
+            }
+            if ("minecraft:player".equals(tag.getString("id"))) {
+                continue;
+            }
+            stripPlayerPassengers(tag);
+            try {
+                Entity entity = EntityType.loadEntityRecursive(tag, level, loaded -> loaded);
+                if (entity == null || !level.addFreshEntity(entity)) {
+                    MiniGamePlaygroundMod.LOGGER.warn(
+                            "Failed to restore snapshot entity '{}'.", tag.getString("id"));
+                    continue;
+                }
+                restored++;
+            } catch (Exception exception) {
+                MiniGamePlaygroundMod.LOGGER.warn(
+                        "Failed to restore snapshot entity '{}'.", tag.getString("id"), exception);
+            }
+        }
+        return restored;
+    }
+
+    private static void stripPlayerPassengers(CompoundTag tag) {
+        if (!tag.contains("Passengers", Tag.TAG_LIST)) {
+            return;
+        }
+        ListTag original = tag.getList("Passengers", Tag.TAG_COMPOUND);
+        ListTag filtered = new ListTag();
+        for (Tag element : original) {
+            if (!(element instanceof CompoundTag passenger)) {
+                continue;
+            }
+            if ("minecraft:player".equals(passenger.getString("id"))) {
+                continue;
+            }
+            stripPlayerPassengers(passenger);
+            filtered.add(passenger);
+        }
+        if (filtered.isEmpty()) {
+            tag.remove("Passengers");
+        } else {
+            tag.put("Passengers", filtered);
+        }
+    }
+
+    private static boolean isHandledEntity(Entity entity) {
+        for (ZoneSnapshotExtension extension : extensions()) {
+            if (extension.handlesEntity(entity)) {
+                return true;
+            }
+        }
+        return isCreateEntity(entity);
+    }
+
+    private static boolean isCreateEntity(Entity entity) {
+        return entity != null && entity.getClass().getName().startsWith("com.simibubi.create.");
+    }
+
+    private static boolean writeEntityData(Path file, ListTag entities) {
+        try {
+            CompoundTag root = new CompoundTag();
+            root.putInt("Version", ENTITY_SNAPSHOT_VERSION);
+            root.put("Entities", entities);
+            Path temp = tempFile(file);
+            NbtIo.writeCompressed(root, temp.toFile());
+            return move(temp, file);
+        } catch (Exception exception) {
+            MiniGamePlaygroundMod.LOGGER.error("Failed to write entity snapshot {}.", file, exception);
+            return false;
+        }
+    }
+
+    private static ListTag readEntityData(Path file) {
+        try {
+            CompoundTag root = NbtIo.readCompressed(file.toFile());
+            ListTag entities = root.getList("Entities", Tag.TAG_COMPOUND);
+            return entities;
+        } catch (Exception exception) {
+            MiniGamePlaygroundMod.LOGGER.error("Failed to read entity snapshot {}.", file, exception);
+            return null;
+        }
     }
 
     public static boolean restore(ServerLevel level, PlaygroundZone zone) {
@@ -153,32 +424,53 @@ public final class ZoneSnapshots {
 
         Path schematic = schematicFile(zone.getId());
         Path nbt = nbtFile(zone.getId());
+        EntitySnapshotData entityData = readEntitySnapshots(zone);
+        if (entityData == null && hasEntitySnapshot(zone)) {
+            MiniGamePlaygroundMod.LOGGER.error(
+                    "Failed to read entity snapshot for zone '{}'; refusing to reset.", zone.getId());
+            return false;
+        }
 
+        if (entityData == null) {
+            // Legacy snapshots did not contain entities. Keep the old reset behavior.
+            clearItems(level, zone);
+        } else {
+            clearSnapshotEntities(level, zone);
+        }
+
+        boolean blockRestored = false;
         RestoreContext.beginRestore();
         try {
             if (Files.isRegularFile(schematic)) {
                 if (FabricLoader.getInstance().isModLoaded("worldedit")
                         && invokeWorldEditRestore(level, zone, schematic)) {
-                    return true;
+                    blockRestored = true;
+                } else if (Files.isRegularFile(nbt)) {
+                    blockRestored = restoreInternal(level, zone, nbt);
+                } else {
+                    MiniGamePlaygroundMod.LOGGER.error(
+                            "Zone '{}' has a WorldEdit snapshot but WorldEdit is not installed or failed to restore it.",
+                            zone.getId());
                 }
-                if (Files.isRegularFile(nbt)) {
-                    return restoreInternal(level, zone, nbt);
-                }
-                MiniGamePlaygroundMod.LOGGER.error(
-                        "Zone '{}' has a WorldEdit snapshot but WorldEdit is not installed or failed to restore it.",
-                        zone.getId());
-                return false;
+            } else if (Files.isRegularFile(nbt)) {
+                blockRestored = restoreInternal(level, zone, nbt);
+            } else {
+                MiniGamePlaygroundMod.LOGGER.error("Zone '{}' has no snapshot file.", zone.getId());
             }
-
-            if (Files.isRegularFile(nbt)) {
-                return restoreInternal(level, zone, nbt);
-            }
-
-            MiniGamePlaygroundMod.LOGGER.error("Zone '{}' has no snapshot file.", zone.getId());
-            return false;
         } finally {
             RestoreContext.endRestore();
         }
+
+        if (!blockRestored) {
+            return false;
+        }
+
+        if (entityData != null) {
+            int restored = restoreSnapshotEntities(level, zone, entityData);
+            MiniGamePlaygroundMod.LOGGER.info(
+                    "Restored {} snapshot entities for zone '{}'.", restored, zone.getId());
+        }
+        return true;
     }
 
     /**
@@ -227,6 +519,10 @@ public final class ZoneSnapshots {
         deleteIfExists(nbtFile(zoneId));
         deleteIfExists(schematicFile(zoneId));
         deleteIfExists(metaFile(zoneId));
+        deleteIfExists(baseEntityFile(zoneId));
+        for (ZoneSnapshotExtension extension : extensions()) {
+            deleteIfExists(extensionEntityFile(zoneId, extension.id()));
+        }
         deleteIfExists(tempFile(nbtFile(zoneId)));
         deleteIfExists(tempFile(schematicFile(zoneId)));
     }
@@ -345,6 +641,18 @@ public final class ZoneSnapshots {
         return SNAPSHOT_DIR.resolve(baseName(zoneId) + ".meta.json");
     }
 
+    private static Path baseEntityFile(String zoneId) {
+        return SNAPSHOT_DIR.resolve(baseName(zoneId) + ".entities.nbt");
+    }
+
+    private static Path extensionEntityFile(String zoneId, String extensionId) {
+        String safeExtension = extensionId.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (safeExtension.length() > 24) {
+            safeExtension = safeExtension.substring(0, 24);
+        }
+        return SNAPSHOT_DIR.resolve(baseName(zoneId) + ".entities-" + safeExtension + ".nbt");
+    }
+
     private static Path tempFile(Path target) {
         return target.resolveSibling(target.getFileName() + ".tmp");
     }
@@ -369,5 +677,26 @@ public final class ZoneSnapshots {
         private String dimension;
         private String format;
         private long createdAt;
+    }
+
+    private static final class EntitySnapshotData {
+        private final ListTag baseEntities;
+        private final List<EntitySnapshotExtensionData> extensions;
+
+        private EntitySnapshotData(ListTag baseEntities,
+                                   List<EntitySnapshotExtensionData> extensions) {
+            this.baseEntities = baseEntities;
+            this.extensions = extensions;
+        }
+    }
+
+    private static final class EntitySnapshotExtensionData {
+        private final ZoneSnapshotExtension extension;
+        private final ListTag entities;
+
+        private EntitySnapshotExtensionData(ZoneSnapshotExtension extension, ListTag entities) {
+            this.extension = extension;
+            this.entities = entities;
+        }
     }
 }

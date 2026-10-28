@@ -6,7 +6,7 @@
 ./gradlew build
 ```
 
-产物：`build/libs/minigameplayground-2.1.0.jar`
+产物：`build/libs/minigameplayground-2.2.0.jar`
 
 当前项目固定使用：
 
@@ -18,7 +18,7 @@
 
 ## 安装
 
-把 `minigameplayground-2.1.0.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
+把 `minigameplayground-2.2.0.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
 服务端需要 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
 模组只处理服务端伤害、保护与指令，不添加物品、方块或客户端界面。
 
@@ -264,14 +264,17 @@ Create 的 Contraption 防复制放在独立附属模组 `minigameplayground-cre
 
 ### 快照与 `/mgp reset`
 
-- 执行 `/mgp create` 时，会在后台为区域生成初始地形快照。
+- 执行 `/mgp create` 时，会在后台为区域生成初始方块和实体快照。
 - 单个区域体积上限由 `config/minigameplayground.json` 的 `maxZoneVolume` 控制，默认 **500,000**，最大 **20,000,000**；超过时拒绝创建/重置。
-- `/mgp snapshot <区域ID>` 可用当前地形重新生成快照。
+- `/mgp snapshot <区域ID>` 可用当前状态重新生成快照。
 - `/mgp reset <区域ID>` 会：
   1. 向场地内玩家发送 Title：`§c场地正在重置中，请勿破坏...`；
-  2. 清除区域 AABB 内的全部 `ItemEntity` 掉落物（包括玩家按 Q 丢出的物品）；
-  3. 将地形恢复到快照状态（方块、方块实体 NBT 一并恢复）；
-  4. 再次清理掉落物，并发送 `§a场地重置完成`。
+  2. 先让骑乘被删除载具的玩家安全下坐骑；
+  3. 清除区域 AABB 内的全部非玩家实体；
+  4. 将地形恢复到快照状态（方块、方块实体 NBT 和实体一并恢复），并发送 `§a场地重置完成`。
+- 玩家绝不会被写入实体快照，也不会被删除、复制或传送；载具上的玩家乘客在保存时会被剥离，因此保存的是空载具。
+- 旧快照没有实体文件时仍按旧行为恢复：只恢复方块/方块实体并清理掉落物。
+- Create 实体（包括 Contraption 实体）由 `minigameplayground-create` 附属通过核心快照扩展保存和恢复；核心本身不编写 Create 相关内容。
 - 快照元数据会记录创建时的维度，控制台执行重置时也会定位到正确维度。
 - 1.1.x 及更早版本创建的区域可能没有快照；升级后请先执行一次 `/mgp snapshot <区域ID>`。
 
@@ -280,6 +283,8 @@ Create 的 Contraption 防复制放在独立附属模组 `minigameplayground-cre
 ```text
 config/minigameplayground-snapshots/<区域ID哈希>.schem
 config/minigameplayground-snapshots/<区域ID哈希>.meta.json
+config/minigameplayground-snapshots/<区域ID哈希>.entities.nbt
+config/minigameplayground-snapshots/<区域ID哈希>.entities-create.nbt  # 安装 Create 附属时
 ```
 
 `/mgp reset` 会从文件读取快照，不依赖上一次命令留下的内存状态。
@@ -357,8 +362,11 @@ config/minigameplayground-snapshots/<区域ID哈希>.meta.json
 - 两人不在同一区域：不应用伤害倍率。
 - 区域内使用 `/fill ... air destroy` 破坏方块不产生掉落物；区域外正常产生掉落物。
 - 区域内箱子被破坏后内容物不掉落。
-- `/mgp reset` 能恢复被破坏的方块、箱子内容和方块实体 NBT，并清理区域内掉落物，区域外掉落物不受影响。
+- `/mgp reset` 能恢复被破坏的方块、箱子内容和方块实体 NBT，并清理区域内实体，区域外实体不受影响。
 - `/mgp snapshot` 更新快照后，`/mgp reset` 能恢复到新快照状态。
+- `/mgp snapshot` 能保存盔甲架、船和掉落物实体；杀死它们后执行 `/mgp reset`，实体按快照恢复。
+- 玩家骑乘船时执行快照；快照不保存玩家、保存空船。重置时玩家先下坐骑，玩家实体不重复、不传送，船恢复后没有玩家乘客。
+- 没有实体文件的旧快照仍只恢复方块/方块实体并清理掉落物。
 - 默认 500,000 体积上限生效；修改 `config/minigameplayground.json` 并执行 `/mgp reload` 后，新的上限立即生效。
 - 配置为 `999999999` 时会自动限制为 `20,000,000` 并打印警告。
 - WorldEdit 快照写入 `.schem` 文件，`/mgp reset` 能从文件读取并恢复。

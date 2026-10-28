@@ -442,19 +442,17 @@ public final class PlaygroundCommand {
         sendTitle(players, Component.literal("场地正在重置中，请勿破坏...").withStyle(ChatFormatting.RED),
                 10, 60, 10);
 
-        int clearedBefore = ZoneSnapshots.clearItems(level, zone);
         if (!ZoneSnapshots.restore(level, zone)) {
             sendTitle(players, Component.literal("场地重置失败").withStyle(ChatFormatting.RED),
                     10, 40, 10);
             source.sendFailure(Component.literal("[MGP] 区域 '" + id + "' 重置失败，请查看服务器日志。"));
             return 0;
         }
-        int clearedAfter = ZoneSnapshots.clearItems(level, zone);
 
         sendTitle(players, Component.literal("场地重置完成").withStyle(ChatFormatting.GREEN),
                 10, 40, 10);
         String message = String.format(Locale.ROOT,
-                "[MGP] 区域 '%s' 已重置，清理 %d 个掉落物。", id, clearedBefore + clearedAfter);
+                "[MGP] 区域 '%s' 已恢复方块和快照实体。", id);
         source.sendSuccess(() -> Component.literal(message), true);
         return 1;
     }
@@ -636,9 +634,9 @@ public final class PlaygroundCommand {
                 " /mgp unbreakable <区域ID> <true|false>",
                 "   true = 不消耗物品耐久（默认）；false = 正常消耗耐久。",
                 " /mgp reset <区域ID>",
-                "   清除区域内掉落物，并将地形恢复到创建/最近快照状态。",
+                "   清除区域内非玩家实体，恢复方块、方块实体和快照实体。",
                 " /mgp snapshot <区域ID>",
-                "   用当前地形重新生成该区域的快照。",
+                "   保存当前地形和实体，作为该区域的新快照。",
                 "",
                 "调试与维护:",
                 " /mgp damage_rate <玩家> [区域ID]",

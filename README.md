@@ -40,7 +40,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.1.0.jar
+build/libs/minigameplayground-2.2.0.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -95,8 +95,8 @@ build/libs/minigameplayground-2.1.0.jar
 | `/mgp heal <区域ID> <恢复基准\|disable>` | 设置恢复基准，或禁用区域内治疗 |
 | `/mgp damage_mode <区域ID> <pvp\|all>` | 设置该区域的伤害平衡模式；不填模式时查询当前值 |
 | `/mgp unbreakable <区域ID> <true\|false>` | 开启/关闭区域内耐久保护 |
-| `/mgp reset <区域ID>` | 清除掉落物并恢复地形快照 |
-| `/mgp snapshot <区域ID>` | 重新生成当前地形快照 |
+| `/mgp reset <区域ID>` | 清除区域实体、恢复方块/方块实体和快照实体 |
+| `/mgp snapshot <区域ID>` | 重新生成当前地形和实体快照 |
 | `/mgp damage_rate <玩家> [区域ID]` | 查看伤害倍率 |
 | `/mgp heal_rate <玩家> [区域ID]` | 查看恢复倍率 |
 | `/mgp check` | 检查自己是否在场地内 |
@@ -315,20 +315,24 @@ Create Contraption 的组装/拆卸、矿车 NBT 和多区域判断放在独立�
 
 ### 快照与重置
 
-- 执行 `/mgp create` 时自动生成地形快照。
-- `/mgp snapshot <区域ID>` 可用当前地形重新生成快照。
+- 执行 `/mgp create` 时自动生成方块和实体快照。
+- `/mgp snapshot <区域ID>` 可用当前状态重新生成快照。
 - `/mgp reset <区域ID>` 会：
   1. 向场地内玩家发送重置提示；
-  2. 清除区域内所有掉落物实体；
-  3. 将方块和方块实体恢复到快照状态；
-  4. 再次清理掉落物并提示完成。
+  2. 先让骑乘被清除载具的玩家下坐骑；
+  3. 清除区域内所有非玩家实体；
+  4. 将方块、方块实体和快照实体恢复到快照状态。
 - 快照会记录创建时的维度，控制台执行重置时会定位到正确维度。
 - 旧版本创建、没有快照的区域，请先执行一次 `/mgp snapshot <区域ID>`。
+- 玩家不会进入实体快照，不会被保存、复制、删除或传送。载具即使有玩家乘客也会保存为“空载具”，玩家在重置前会被安全下坐骑。
+- 旧快照没有实体文件时仍按旧行为恢复：只恢复方块/方块实体并清理掉落物。
+- 普通实体、载具、盔甲架、掉落物等由核心模组保存；Create 实体（含 Contraption）由 `minigameplayground-create` 附属通过核心的 `ZoneSnapshotExtension` API 单独保存。未安装附属时核心不会接管 Create 实体。
 
 快照实现：
 
 - WorldEdit 是硬依赖，使用 `.schem` 格式和 WorldEdit 粘贴 API。
 - 快照写入 `config/minigameplayground-snapshots/` 文件，重启服务器后仍然存在。
+- 实体快照保存在同目录的 `.entities.nbt` 和附属扩展文件（例如 `.entities-create.nbt`）中。
 - `/mgp reset` 从文件读取快照后恢复，不依赖上一次命令留下的内存状态。
 - 仍保留内置 `StructureTemplate` 快照作为 WorldEdit 操作异常时的兜底。
 
