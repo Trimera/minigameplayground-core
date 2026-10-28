@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.minigameplayground.MiniGamePlaygroundConfig;
 import com.minigameplayground.MiniGamePlaygroundMod;
+import com.minigameplayground.RestoreContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -153,26 +154,31 @@ public final class ZoneSnapshots {
         Path schematic = schematicFile(zone.getId());
         Path nbt = nbtFile(zone.getId());
 
-        if (Files.isRegularFile(schematic)) {
-            if (FabricLoader.getInstance().isModLoaded("worldedit")
-                    && invokeWorldEditRestore(level, zone, schematic)) {
-                return true;
+        RestoreContext.beginRestore();
+        try {
+            if (Files.isRegularFile(schematic)) {
+                if (FabricLoader.getInstance().isModLoaded("worldedit")
+                        && invokeWorldEditRestore(level, zone, schematic)) {
+                    return true;
+                }
+                if (Files.isRegularFile(nbt)) {
+                    return restoreInternal(level, zone, nbt);
+                }
+                MiniGamePlaygroundMod.LOGGER.error(
+                        "Zone '{}' has a WorldEdit snapshot but WorldEdit is not installed or failed to restore it.",
+                        zone.getId());
+                return false;
             }
+
             if (Files.isRegularFile(nbt)) {
                 return restoreInternal(level, zone, nbt);
             }
-            MiniGamePlaygroundMod.LOGGER.error(
-                    "Zone '{}' has a WorldEdit snapshot but WorldEdit is not installed or failed to restore it.",
-                    zone.getId());
+
+            MiniGamePlaygroundMod.LOGGER.error("Zone '{}' has no snapshot file.", zone.getId());
             return false;
+        } finally {
+            RestoreContext.endRestore();
         }
-
-        if (Files.isRegularFile(nbt)) {
-            return restoreInternal(level, zone, nbt);
-        }
-
-        MiniGamePlaygroundMod.LOGGER.error("Zone '{}' has no snapshot file.", zone.getId());
-        return false;
     }
 
     /**
