@@ -351,9 +351,13 @@ public final class ZoneSnapshots {
                     }
                 });
 
-                if (!level.addFreshEntity(entity)) {
+                // addFreshEntity only adds the root. Passenger entities loaded from
+                // the vehicle's Passengers list need to enter the entity manager too,
+                // otherwise the vehicle looks occupied but the rider is a ghost.
+                if (!level.tryAddFreshEntityWithPassengers(entity)) {
                     MiniGamePlaygroundMod.LOGGER.warn(
-                            "Failed to add restored snapshot entity '{}'.", tag.getString("id"));
+                            "Failed to add restored snapshot entity '{}' with passengers.",
+                            tag.getString("id"));
                     continue;
                 }
                 restored++;

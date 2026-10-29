@@ -6,7 +6,7 @@
 ./gradlew build
 ```
 
-产物：`build/libs/minigameplayground-2.2.2.jar`
+产物：`build/libs/minigameplayground-2.2.3.jar`
 
 当前项目固定使用：
 
@@ -18,7 +18,7 @@
 
 ## 安装
 
-把 `minigameplayground-2.2.2.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
+把 `minigameplayground-2.2.3.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
 服务端需要 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
 模组只处理服务端伤害、保护与指令，不添加物品、方块或客户端界面。
 
