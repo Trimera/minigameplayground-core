@@ -6,6 +6,7 @@ import com.minigameplayground.MiniGamePlaygroundConfig;
 import com.minigameplayground.MiniGamePlaygroundMod;
 import com.minigameplayground.RestoreContext;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -26,6 +27,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 import net.minecraft.world.phys.AABB;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -35,7 +37,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Predicate;
 
@@ -122,6 +126,52 @@ public final class ZoneSnapshots {
 
     public static boolean hasSnapshot(String zoneId) {
         return Files.isRegularFile(nbtFile(zoneId)) || Files.isRegularFile(schematicFile(zoneId));
+    }
+
+    /**
+     * Reads the block-entity data stored in the zone's WorldEdit schematic.
+     *
+     * <p>The returned map is keyed by absolute world position. Compatibility addons
+     * can use it to reapply runtime block-entity fields that WorldEdit may skip when
+     * the block state is unchanged or when the block entity is reused.</p>
+     */
+    public static Map<BlockPos, CompoundTag> readSnapshotBlockEntities(PlaygroundZone zone) {
+        Path file = schematicFile(zone.getId());
+        if (!Files.isRegularFile(file)) {
+            return Map.of();
+        }
+        Map<BlockPos, CompoundTag> result = new LinkedHashMap<>();
+        try (InputStream input = Files.newInputStream(file)) {
+            CompoundTag root = NbtIo.readCompressed(input);
+            ListTag entries = root.contains("BlockEntities", CompoundTag.TAG_LIST)
+                    ? root.getList("BlockEntities", CompoundTag.TAG_COMPOUND)
+                    : root.getList("TileEntities", CompoundTag.TAG_COMPOUND);
+            int minX = zone.getMinBlockX();
+            int minY = zone.getMinBlockY();
+            int minZ = zone.getMinBlockZ();
+            for (int i = 0; i < entries.size(); i++) {
+                CompoundTag entry = entries.getCompound(i);
+                int[] relative = entry.getIntArray("Pos");
+                if (relative.length != 3) {
+                    continue;
+                }
+                CompoundTag data = entry.contains("Data", CompoundTag.TAG_COMPOUND)
+                        ? entry.getCompound("Data").copy() : entry.copy();
+                data.remove("Pos");
+                BlockPos absolute = new BlockPos(
+                        minX + relative[0], minY + relative[1], minZ + relative[2]);
+                data.putInt("x", absolute.getX());
+                data.putInt("y", absolute.getY());
+                data.putInt("z", absolute.getZ());
+                result.put(absolute, data);
+            }
+        } catch (Exception exception) {
+            MiniGamePlaygroundMod.LOGGER.warn(
+                    "Failed to read block entities from snapshot for zone '{}'.",
+                    zone.getId(), exception);
+            return Map.of();
+        }
+        return result;
     }
 
     public static boolean save(ServerLevel level, PlaygroundZone zone) {

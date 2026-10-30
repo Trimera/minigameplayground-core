@@ -5,6 +5,7 @@ import com.minigameplayground.zone.ZoneManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +32,7 @@ public final class MiniGamePlaygroundMod implements ModInitializer {
             ZoneManager.load();
         });
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> ZoneManager.saveIfDirty());
+        ServerTickEvents.END_SERVER_TICK.register(server -> RestoreContext.tick());
 
         LOGGER.info("MiniGamePlayground initialized (server-side damage scaling).");
     }
