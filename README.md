@@ -354,14 +354,14 @@ world/minigameplayground/snapshots/
 
 不同存档使用各自独立的区域和快照，不能跨存档恢复。
 
-从旧版升级时，旧的全局区域定义会**只迁移一次**到更新后第一个启动的存档：
+旧版的全局区域和快照不再读取，也不会在启动时扫描或迁移：
 
 ```text
 config/minigameplayground-zones.json
-config/pvpbalance-zones.json
+config/minigameplayground-snapshots/
 ```
 
-旧快照不会自动迁移，因为旧版快照目录可能混有多个存档的数据；迁移后请在对应区域重新执行 `/mgp snapshot <区域ID>`。迁移标记写入 `config/minigameplayground-legacy-zones-migrated.txt`，因此旧区域只会进入一次存档，不会复制到之后启动的其他存档。旧命令 `/pvb`、`/pvpbalance` 仍作为兼容别名保留。
+升级后请直接在目标存档内重新创建区域并执行 `/mgp snapshot <区域ID>`。如果确实需要旧数据，请手动把对应文件复制到该存档的 `minigameplayground/` 目录。旧命令 `/pvb`、`/pvpbalance` 仍作为兼容别名保留。
 
 旧命令 `/pvb`、`/pvpbalance` 仍作为兼容别名保留，新命令推荐使用 `/mgp`。
 
