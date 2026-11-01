@@ -2,6 +2,7 @@ package com.minigameplayground;
 
 import com.minigameplayground.command.PlaygroundCommand;
 import com.minigameplayground.zone.ZoneManager;
+import com.minigameplayground.zone.ZoneStorage;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -29,6 +30,7 @@ public final class MiniGamePlaygroundMod implements ModInitializer {
         // never touches the disk.
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             MiniGamePlaygroundConfig.load();
+            ZoneStorage.initialize(server);
             ZoneManager.load();
         });
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> ZoneManager.saveIfDirty());

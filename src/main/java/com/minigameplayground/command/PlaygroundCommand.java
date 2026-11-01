@@ -646,7 +646,7 @@ public final class PlaygroundCommand {
                 " /mgp check",
                 "   检查自己当前是否在游戏场地内。",
                 " /mgp reload",
-                "   从 config/minigameplayground-zones.json 重新加载区域配置。",
+                "   从当前存档的 minigameplayground/zones.json 重新加载区域配置。",
                 " /mgp help",
                 "   显示本帮助。",
                 "",

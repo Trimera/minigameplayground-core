@@ -53,19 +53,11 @@ import java.util.function.Predicate;
  * own entity types. The volume limit keeps block snapshots bounded.</p>
  */
 public final class ZoneSnapshots {
-    private static final Path SNAPSHOT_DIR =
-            FabricLoader.getInstance().getConfigDir().resolve("minigameplayground-snapshots");
-    private static final Path LEGACY_SNAPSHOT_DIR =
-            FabricLoader.getInstance().getConfigDir().resolve("pvpbalance-snapshots");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String WORLDEDIT_FORMAT = "worldedit";
     private static final String INTERNAL_FORMAT = "internal";
     private static final int ENTITY_SNAPSHOT_VERSION = 1;
     private static final List<ZoneSnapshotExtension> EXTENSIONS = new ArrayList<>();
-
-    static {
-        migrateLegacySnapshots();
-    }
 
     private ZoneSnapshots() {
     }
@@ -91,34 +83,6 @@ public final class ZoneSnapshots {
         return List.copyOf(EXTENSIONS);
     }
 
-    private static void migrateLegacySnapshots() {
-        if (Files.exists(SNAPSHOT_DIR) || !Files.isDirectory(LEGACY_SNAPSHOT_DIR)) {
-            return;
-        }
-        try {
-            Files.createDirectories(SNAPSHOT_DIR);
-            try (var paths = Files.walk(LEGACY_SNAPSHOT_DIR)) {
-                paths.forEach(source -> {
-                    try {
-                        Path target = SNAPSHOT_DIR.resolve(LEGACY_SNAPSHOT_DIR.relativize(source).toString());
-                        if (Files.isDirectory(source)) {
-                            Files.createDirectories(target);
-                        } else {
-                            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-                        }
-                    } catch (Exception exception) {
-                        MiniGamePlaygroundMod.LOGGER.warn(
-                                "Failed to migrate snapshot file {}.", source, exception);
-                    }
-                });
-            }
-            MiniGamePlaygroundMod.LOGGER.info(
-                    "Migrated legacy snapshots from {} to {}.", LEGACY_SNAPSHOT_DIR, SNAPSHOT_DIR);
-        } catch (Exception exception) {
-            MiniGamePlaygroundMod.LOGGER.warn(
-                    "Failed to migrate legacy snapshot directory {}.", LEGACY_SNAPSHOT_DIR, exception);
-        }
-    }
 
     public static boolean isWithinVolumeLimit(PlaygroundZone zone) {
         return MiniGamePlaygroundConfig.isWithinLimit(zone.getBlockVolume());
@@ -188,9 +152,9 @@ public final class ZoneSnapshots {
         }
 
         try {
-            Files.createDirectories(SNAPSHOT_DIR);
+            Files.createDirectories(ZoneStorage.snapshotsDir());
         } catch (IOException exception) {
-            MiniGamePlaygroundMod.LOGGER.error("Failed to create snapshot directory {}.", SNAPSHOT_DIR, exception);
+            MiniGamePlaygroundMod.LOGGER.error("Failed to create snapshot directory {}.", ZoneStorage.snapshotsDir(), exception);
             return false;
         }
 
@@ -711,19 +675,19 @@ public final class ZoneSnapshots {
     }
 
     private static Path nbtFile(String zoneId) {
-        return SNAPSHOT_DIR.resolve(baseName(zoneId) + ".nbt");
+        return ZoneStorage.snapshotsDir().resolve(baseName(zoneId) + ".nbt");
     }
 
     private static Path schematicFile(String zoneId) {
-        return SNAPSHOT_DIR.resolve(baseName(zoneId) + ".schem");
+        return ZoneStorage.snapshotsDir().resolve(baseName(zoneId) + ".schem");
     }
 
     private static Path metaFile(String zoneId) {
-        return SNAPSHOT_DIR.resolve(baseName(zoneId) + ".meta.json");
+        return ZoneStorage.snapshotsDir().resolve(baseName(zoneId) + ".meta.json");
     }
 
     private static Path baseEntityFile(String zoneId) {
-        return SNAPSHOT_DIR.resolve(baseName(zoneId) + ".entities.nbt");
+        return ZoneStorage.snapshotsDir().resolve(baseName(zoneId) + ".entities.nbt");
     }
 
     private static Path extensionEntityFile(String zoneId, String extensionId) {
@@ -731,7 +695,7 @@ public final class ZoneSnapshots {
         if (safeExtension.length() > 24) {
             safeExtension = safeExtension.substring(0, 24);
         }
-        return SNAPSHOT_DIR.resolve(baseName(zoneId) + ".entities-" + safeExtension + ".nbt");
+        return ZoneStorage.snapshotsDir().resolve(baseName(zoneId) + ".entities-" + safeExtension + ".nbt");
     }
 
     private static Path tempFile(Path target) {

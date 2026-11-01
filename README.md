@@ -331,27 +331,37 @@ Create Contraption 的组装/拆卸、矿车 NBT 和多区域判断放在独立�
 快照实现：
 
 - WorldEdit 是硬依赖，使用 `.schem` 格式和 WorldEdit 粘贴 API。
-- 快照写入 `config/minigameplayground-snapshots/` 文件，重启服务器后仍然存在。
+- 快照写入当前存档的 `minigameplayground/snapshots/` 目录（例如 `world/minigameplayground/snapshots/`），不会跨存档共享。
 - 实体快照保存在同目录的 `.entities.nbt` 和附属扩展文件（例如 `.entities-create.nbt`）中。
 - `/mgp reset` 从文件读取快照后恢复，不依赖上一次命令留下的内存状态。
 - 仍保留内置 `StructureTemplate` 快照作为 WorldEdit 操作异常时的兜底。
 
 ## 配置文件
 
-区域配置保存在：
+区域配置和快照保存在当前存档内：
+
+```text
+<存档目录>/minigameplayground/zones.json
+<存档目录>/minigameplayground/snapshots/
+```
+
+例如默认主世界：
+
+```text
+world/minigameplayground/zones.json
+world/minigameplayground/snapshots/
+```
+
+不同存档使用各自独立的区域和快照，不能跨存档恢复。
+
+从旧版升级时，旧的全局区域定义会**只迁移一次**到更新后第一个启动的存档：
 
 ```text
 config/minigameplayground-zones.json
-config/minigameplayground-snapshots/
-```
-
-从旧版 PVP Balance 升级时，如果新文件不存在，会自动读取并迁移：
-
-```text
-config/pvpbalance.json
 config/pvpbalance-zones.json
-config/pvpbalance-snapshots/
 ```
+
+旧快照不会自动迁移，因为旧版快照目录可能混有多个存档的数据；迁移后请在对应区域重新执行 `/mgp snapshot <区域ID>`。迁移标记写入 `config/minigameplayground-legacy-zones-migrated.txt`，因此旧区域只会进入一次存档，不会复制到之后启动的其他存档。旧命令 `/pvb`、`/pvpbalance` 仍作为兼容别名保留。
 
 旧命令 `/pvb`、`/pvpbalance` 仍作为兼容别名保留，新命令推荐使用 `/mgp`。
 

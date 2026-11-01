@@ -3,7 +3,6 @@ package com.minigameplayground.zone;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.minigameplayground.MiniGamePlaygroundMod;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -26,16 +25,13 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * In-memory registry of playground zones, persisted to {@code config/minigameplayground-zones.json}.
+ * In-memory registry of playground zones, persisted to
+ * {@code <world>/minigameplayground/zones.json} for the current save.
  *
  * <p>The damage path only performs a small AABB lookup in this registry. Disk I/O is
  * limited to server startup, shutdown and administrative commands.</p>
  */
 public final class ZoneManager {
-    private static final Path CONFIG_FILE =
-            FabricLoader.getInstance().getConfigDir().resolve("minigameplayground-zones.json");
-    private static final Path LEGACY_CONFIG_FILE =
-            FabricLoader.getInstance().getConfigDir().resolve("pvpbalance-zones.json");
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
             .disableHtmlEscaping()
@@ -51,11 +47,10 @@ public final class ZoneManager {
         ZONES.clear();
         dirty = false;
 
-        Path source = Files.exists(CONFIG_FILE) ? CONFIG_FILE
-                : Files.exists(LEGACY_CONFIG_FILE) ? LEGACY_CONFIG_FILE
-                : null;
-        if (source == null) {
-            MiniGamePlaygroundMod.LOGGER.info("No playground zone config found at {}; starting with no zones.", CONFIG_FILE);
+        Path source = ZoneStorage.zonesFile();
+        if (!Files.isRegularFile(source)) {
+            MiniGamePlaygroundMod.LOGGER.info(
+                    "No playground zone config found at {} for this save; starting with no zones.", source);
             return;
         }
 
@@ -120,12 +115,6 @@ public final class ZoneManager {
                     }
                 }
             }
-            if (source.equals(LEGACY_CONFIG_FILE) && !ZONES.isEmpty()) {
-                dirty = true;
-                save();
-                MiniGamePlaygroundMod.LOGGER.info(
-                        "Migrated legacy playground zones from {} to {}.", LEGACY_CONFIG_FILE, CONFIG_FILE);
-            }
             MiniGamePlaygroundMod.LOGGER.info("Loaded {} playground zone(s) from {}.", ZONES.size(), source);
         } catch (Exception exception) {
             ZONES.clear();
@@ -140,33 +129,33 @@ public final class ZoneManager {
         }
 
         try {
-            Path parent = CONFIG_FILE.getParent();
+            Path parent = ZoneStorage.zonesFile().getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
             }
 
-            Path tempFile = CONFIG_FILE.resolveSibling(CONFIG_FILE.getFileName() + ".tmp");
+            Path tempFile = ZoneStorage.zonesFile().resolveSibling(ZoneStorage.zonesFile().getFileName() + ".tmp");
             Files.writeString(tempFile, GSON.toJson(root), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 
             try {
-                Files.move(tempFile, CONFIG_FILE, StandardCopyOption.REPLACE_EXISTING,
+                Files.move(tempFile, ZoneStorage.zonesFile(), StandardCopyOption.REPLACE_EXISTING,
                         StandardCopyOption.ATOMIC_MOVE);
             } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(tempFile, CONFIG_FILE, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(tempFile, ZoneStorage.zonesFile(), StandardCopyOption.REPLACE_EXISTING);
             }
 
             dirty = false;
-            MiniGamePlaygroundMod.LOGGER.info("Saved {} playground zone(s) to {}.", ZONES.size(), CONFIG_FILE);
+            MiniGamePlaygroundMod.LOGGER.info("Saved {} playground zone(s) to {}.", ZONES.size(), ZoneStorage.zonesFile());
             return true;
         } catch (Exception exception) {
-            MiniGamePlaygroundMod.LOGGER.error("Failed to save playground zone config to {}.", CONFIG_FILE, exception);
+            MiniGamePlaygroundMod.LOGGER.error("Failed to save playground zone config to {}.", ZoneStorage.zonesFile(), exception);
             return false;
         }
     }
 
     public static synchronized void saveIfDirty() {
-        if (dirty) {
+        if (dirty && ZoneStorage.isInitialized()) {
             save();
         }
     }
