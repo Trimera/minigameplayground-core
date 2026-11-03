@@ -1,12 +1,15 @@
 package com.minigameplayground;
 
 import com.minigameplayground.command.PlaygroundCommand;
+import com.minigameplayground.flight.FlightController;
 import com.minigameplayground.zone.ZoneManager;
 import com.minigameplayground.zone.ZoneStorage;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +38,15 @@ public final class MiniGamePlaygroundMod implements ModInitializer {
         });
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> ZoneManager.saveIfDirty());
         ServerTickEvents.END_SERVER_TICK.register(server -> RestoreContext.tick());
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
+                FlightController.onJoin(handler.player));
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            if (handler.player != null) {
+                FlightController.onDisconnect(handler.player);
+            }
+        });
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) ->
+                FlightController.onRespawn(newPlayer));
 
         LOGGER.info("MiniGamePlayground initialized (server-side damage scaling).");
     }

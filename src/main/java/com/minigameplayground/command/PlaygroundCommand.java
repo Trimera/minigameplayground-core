@@ -108,6 +108,7 @@ public final class PlaygroundCommand {
         root.then(damageBaselineCommand());
         root.then(healBaselineCommand());
         root.then(damageModeCommand());
+        root.then(flightCommand());
 
         root.then(Commands.literal("unbreakable")
                 .then(Commands.argument("id", StringArgumentType.string())
@@ -176,6 +177,43 @@ public final class PlaygroundCommand {
                                 .executes(PlaygroundCommand::setDamageMode)));
     }
 
+    private static LiteralArgumentBuilder<CommandSourceStack> flightCommand() {
+        return Commands.literal("flight")
+                .then(Commands.argument("id", StringArgumentType.string())
+                        .suggests(ZONE_SUGGESTIONS)
+                        .executes(PlaygroundCommand::showFlight)
+                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                .executes(PlaygroundCommand::setFlight)));
+    }
+
+    private static int showFlight(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        PlaygroundZone zone = ZoneManager.getZone(id);
+        if (zone == null) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 的创造飞行: %s（仅影响生存/冒险/极限模式；创造/旁观始终允许）",
+                id, zone.isCreativeFlightAllowed() ? "允许" : "禁止")), false);
+        return 1;
+    }
+
+    private static int setFlight(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        boolean allowed = BoolArgumentType.getBool(context, "value");
+        if (!ZoneManager.setAllowCreativeFlight(id, allowed)) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 已%s创造飞行（仅影响生存/冒险/极限模式）。",
+                id, allowed ? "允许" : "禁止")), true);
+        return 1;
+    }
+
     private static int create(CommandContext<CommandSourceStack> context) {
         return create(context, context.getSource().getLevel());
     }
@@ -215,13 +253,14 @@ public final class PlaygroundCommand {
         boolean damageDisabled = existing != null && existing.isDamageDisabled();
         boolean healDisabled = existing != null && existing.isHealDisabled();
         DamageMode damageMode = existing == null ? DamageMode.PVP : existing.getDamageMode();
+        boolean allowCreativeFlight = existing != null && existing.isCreativeFlightAllowed();
 
         String dimension = level.dimension().location().toString();
         PlaygroundZone zone = new PlaygroundZone(id, dimension,
                 pos1.x, pos1.y, pos1.z,
                 pos2.x, pos2.y, pos2.z,
                 damageBaseline, restoreBaseline, keepDurability, damageDisabled, healDisabled,
-                damageMode);
+                damageMode, allowCreativeFlight);
 
         if (!ZoneSnapshots.isWithinVolumeLimit(zone)) {
             source.sendFailure(Component.literal(String.format(Locale.ROOT,
@@ -631,6 +670,10 @@ public final class PlaygroundCommand {
                 "   pvp = 只平衡同一区域内的玩家对玩家伤害（默认）。",
                 "   all = 只要求受害者在区域内；玩家、生物、投射物、无来源、自伤和环境伤害都平衡。",
                 "   无论哪种模式，虚空伤害和 /kill 都不受平衡影响。",
+                " /mgp flight <区域ID>",
+                "   查看该区域是否允许生存/冒险/极限模式玩家创造飞行。",
+                " /mgp flight <区域ID> <true|false>",
+                "   设置区域创造飞行；默认禁止。创造/旁观模式始终允许。",
                 " /mgp unbreakable <区域ID> <true|false>",
                 "   true = 不消耗物品耐久（默认）；false = 正常消耗耐久。",
                 " /mgp reset <区域ID>",

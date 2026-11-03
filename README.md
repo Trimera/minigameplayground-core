@@ -94,6 +94,7 @@ build/libs/minigameplayground-2.2.3.jar
 | `/mgp damage <区域ID> <伤害基准\|disable>` | 设置伤害基准，或禁用区域内伤害 |
 | `/mgp heal <区域ID> <恢复基准\|disable>` | 设置恢复基准，或禁用区域内治疗 |
 | `/mgp damage_mode <区域ID> <pvp\|all>` | 设置该区域的伤害平衡模式；不填模式时查询当前值 |
+| `/mgp flight <区域ID> [true\|false]` | 查看/设置生存、冒险、极限模式玩家的区域创造飞行；默认禁止 |
 | `/mgp unbreakable <区域ID> <true\|false>` | 开启/关闭区域内耐久保护 |
 | `/mgp reset <区域ID>` | 清除区域实体、恢复方块/方块实体和快照实体 |
 | `/mgp snapshot <区域ID>` | 重新生成当前地形和实体快照 |
@@ -203,6 +204,25 @@ build/libs/minigameplayground-2.2.3.jar
 - `false`：正常消耗耐久。
 
 控制范围是区域内玩家的所有可损坏物品，包括武器、盔甲、盾牌、弓弩和工具。
+
+## 创造飞行
+
+每个区域默认禁止生存/冒险/极限模式玩家使用创造飞行：
+
+```text
+/mgp flight arena_1 true
+/mgp flight arena_1 false
+/mgp flight arena_1
+```
+
+规则：
+
+- 创造/旁观模式始终允许飞行，不受区域设置影响；
+- 重叠区域采用宽松规则：只要玩家所在的任意一个区域允许，就允许飞行；
+- 禁止区域会统一压制 `mayfly` 和 `flying`，包括翅膀、飞行药水、管理员 `/fly` 等所有来源；
+- 不做装置检测；如果地图作者希望升腾台座等装置生效，可以围绕装置创建一个 `flight=true` 的小区域；
+- 离开禁止区域后只释放压制，不主动授予飞行。PlayerAbilityLib 来源会在离开时刷新；效果过期或装备已移除时不会恢复；
+- 管理员 `/fly` 在禁止区域内也会被压制，离开后需要重新执行。
 
 ## 伤害模式
 
@@ -395,6 +415,7 @@ config/minigameplayground.json
 | `damageDisabled` | `true` = 禁用区域伤害 |
 | `healDisabled` | `true` = 禁用区域治疗 |
 | `damageMode` | `"pvp"` = 仅玩家对玩家；`"all"` = 所有伤害来源 |
+| `allowCreativeFlight` | `false`（默认）= 禁止生存/冒险/极限模式创造飞行；`true` = 允许 |
 
 旧配置缺少新字段时使用默认值：
 
@@ -405,6 +426,7 @@ keepDurability = true
 damageDisabled = false
 healDisabled = false
 damageMode = "pvp"
+allowCreativeFlight = false
 ```
 
 伤害和恢复计算只读取内存，不会在战斗过程中读取磁盘。

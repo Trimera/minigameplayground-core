@@ -10,7 +10,8 @@
     "ItemStackDurabilityMixin",
     "BlockDropMixin",
     "ContainersMixin",
-    "PistonStructureResolverMixin"
+    "PistonStructureResolverMixin",
+    "ServerPlayerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

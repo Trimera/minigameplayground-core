@@ -95,6 +95,9 @@ public final class ZoneManager {
                         }
                     }
 
+                    boolean allowCreativeFlight = data.allowCreativeFlight != null
+                            && data.allowCreativeFlight;
+
                     String dimension = PlaygroundZone.DEFAULT_DIMENSION;
                     if (data.dimension != null && !data.dimension.isBlank()) {
                         if (ResourceLocation.tryParse(data.dimension) != null) {
@@ -109,7 +112,8 @@ public final class ZoneManager {
                     PlaygroundZone zone = new PlaygroundZone(data.id, dimension,
                             data.minX, data.minY, data.minZ,
                             data.maxX, data.maxY, data.maxZ, data.standardHealth,
-                            restoreBaseline, keepDurability, damageDisabled, healDisabled, damageMode);
+                            restoreBaseline, keepDurability, damageDisabled, healDisabled,
+                            damageMode, allowCreativeFlight);
                     if (ZONES.put(zone.getId(), zone) != null) {
                         MiniGamePlaygroundMod.LOGGER.warn("Duplicate playground zone id '{}'; the later entry wins.", zone.getId());
                     }
@@ -247,6 +251,17 @@ public final class ZoneManager {
         return true;
     }
 
+    public static synchronized boolean setAllowCreativeFlight(String id, boolean allowed) {
+        PlaygroundZone old = ZONES.get(id);
+        if (old == null) {
+            return false;
+        }
+        ZONES.put(id, old.withAllowCreativeFlight(allowed));
+        dirty = true;
+        save();
+        return true;
+    }
+
     public static synchronized PlaygroundZone getZone(String id) {
         return ZONES.get(id);
     }
@@ -258,6 +273,23 @@ public final class ZoneManager {
             }
         }
         return null;
+    }
+
+    /**
+     * Returns every zone that contains the player. Flight checks use this so overlapping
+     * zones can apply the lenient rule "any allowing zone wins".
+     */
+    public static synchronized List<PlaygroundZone> getZonesAt(ServerPlayer player) {
+        if (player == null) {
+            return List.of();
+        }
+        List<PlaygroundZone> result = new ArrayList<>();
+        for (PlaygroundZone zone : ZONES.values()) {
+            if (zone.contains(player)) {
+                result.add(zone);
+            }
+        }
+        return result;
     }
 
     /**
@@ -359,6 +391,7 @@ public final class ZoneManager {
         private Boolean damageDisabled;
         private Boolean healDisabled;
         private String damageMode;
+        private Boolean allowCreativeFlight;
 
         private static ZoneData from(PlaygroundZone zone) {
             ZoneData data = new ZoneData();
@@ -376,6 +409,7 @@ public final class ZoneManager {
             data.damageDisabled = zone.isDamageDisabled();
             data.healDisabled = zone.isHealDisabled();
             data.damageMode = zone.getDamageMode().getId();
+            data.allowCreativeFlight = zone.isCreativeFlightAllowed();
             return data;
         }
     }
