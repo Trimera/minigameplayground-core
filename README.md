@@ -81,8 +81,8 @@ build/libs/minigameplayground-2.2.3.jar
 
 ## 指令
 
-主指令：`/mgp`  
-兼容别名：`/minigameplayground`、`/pvb`、`/pvpbalance`  
+主指令：`/mgp`
+兼容别名：`/minigameplayground`
 权限：OP 等级 2
 
 | 指令 | 说明 |
@@ -381,9 +381,7 @@ config/minigameplayground-zones.json
 config/minigameplayground-snapshots/
 ```
 
-升级后请直接在目标存档内重新创建区域并执行 `/mgp snapshot <区域ID>`。如果确实需要旧数据，请手动把对应文件复制到该存档的 `minigameplayground/` 目录。旧命令 `/pvb`、`/pvpbalance` 仍作为兼容别名保留。
-
-旧命令 `/pvb`、`/pvpbalance` 仍作为兼容别名保留，新命令推荐使用 `/mgp`。
+升级后请直接在目标存档内重新创建区域并执行 `/mgp snapshot <区域ID>`。如果确实需要旧数据，请手动把对应文件复制到该存档的 `minigameplayground/` 目录。新命令使用 `/mgp` 或 `/minigameplayground`；旧的 `/pvb`、`/pvpbalance` 已移除。
 
 通用配置：
 

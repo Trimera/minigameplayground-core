@@ -67,8 +67,6 @@ public final class PlaygroundCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(buildRoot("mgp"));
         dispatcher.register(buildRoot("minigameplayground"));
-        dispatcher.register(buildRoot("pvb"));
-        dispatcher.register(buildRoot("pvpbalance"));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> buildRoot(String name) {
@@ -646,7 +644,7 @@ public final class PlaygroundCommand {
 
     private static int help(CommandSourceStack source) {
         String[] lines = {
-                "[MGP] MiniGamePlayground 指令帮助（主指令: /mgp；兼容别名: /minigameplayground、/pvb、/pvpbalance）",
+                "[MGP] MiniGamePlayground 指令帮助（主指令: /mgp；兼容别名: /minigameplayground）",
                 "",
                 "区域管理:",
                 " /mgp create <区域ID> <x1> <y1> <z1> <x2> <y2> <z2>",
