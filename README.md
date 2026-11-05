@@ -2,7 +2,7 @@
 
 Minecraft 1.20.1 / Fabric 服务端小游戏场地搭建与玩家对战平衡工具。
 
-MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动态调整玩家受到的伤害与治疗，并提供区域保护、耐久保护、地形快照和场地重置功能。
+MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动态调整玩家受到的伤害与治疗，并提供区域保护、耐久保护、按存档隔离的地形快照、场地重置和区域创造飞行控制。
 
 每个 playground 可以独立选择伤害模式：
 
@@ -15,6 +15,8 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 - 兼容 TaCZ、Spell Engine、Better Combat、Simply Swords 等走原版伤害/治疗流程的模组。
 - 对其他模组在 `getDamageAfterMagicAbsorb` 返回点覆盖返回值、导致原版回调被跳过的情况，提供最终生命值兜底缩放。
 - 阻止原版活塞把区域方块带出区域后复制，并阻止机械钻头/锯等 `Block.getDrops` 路径在区域内刷取掉落物。
+- 区域定义和快照保存在当前存档内，不同存档不会互相覆盖。
+- 每个区域可以禁止生存/冒险/极限模式玩家创造飞行；重叠区域按“任一允许即允许”处理。
 - Create Contraption 的防复制作为独立附属模组 `minigameplayground-create` 提供。
 
 ## 环境要求
@@ -40,7 +42,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.2.3.jar
+build/libs/minigameplayground-2.3.1.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -48,7 +50,7 @@ build/libs/minigameplayground-2.2.3.jar
 安装：
 
 1. 把 jar 放入服务端的 `mods` 目录。
-2. 从旧版升级时，先移除旧的 `pvpbalance-*.jar`；旧配置会自动迁移。
+2. 从旧版升级时，先移除旧的 `pvpbalance-*.jar`；旧全局区域和快照不会自动迁移，需要在新存档重新创建或手动复制。
 3. 服务端安装 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
 4. 启动服务器。
 5. 使用 OP 权限等级 2 执行 `/mgp` 指令。
@@ -347,6 +349,24 @@ Create Contraption 的组装/拆卸、矿车 NBT 和多区域判断放在独立�
 - 玩家不会进入实体快照，不会被保存、复制、删除或传送。载具即使有玩家乘客也会保存为“空载具”，玩家在重置前会被安全下坐骑。
 - 旧快照没有实体文件时仍按旧行为恢复：只恢复方块/方块实体并清理掉落物。
 - 普通实体、载具、盔甲架、掉落物等由核心模组保存；Create 实体（含 Contraption）由 `minigameplayground-create` 附属通过核心的 `ZoneSnapshotExtension` API 单独保存。未安装附属时核心不会接管 Create 实体。
+
+### 嵌套区域
+
+两个区域互相独立，没有父子关系，也没有自动级联：
+
+- `A` 是外层区域，`B` 完全包含在 `A` 内；
+- `/mgp reset A` 会用 A 的快照恢复整个 A 范围，包括 B 覆盖的方块和实体；
+- `/mgp reset B` 只恢复 B 范围，A 中 B 以外的部分不动；
+- B 的区域配置和 B 的快照文件不会被 A 的 reset 修改；
+- 重叠部分遵循“最后一次 reset 覆盖前一次”。
+
+推荐用法：
+
+1. 先把 A 和 B 的最终结构做好；
+2. 对 A 执行 `/mgp snapshot A`，让 A 的快照包含 B；
+3. 不要单独 reset B，避免 B 的旧快照和 A 的最新快照产生接缝。
+
+如果 A 的快照是在 B 建好之前生成的，`reset A` 会删除 B 的结构；之后只能靠 B 自己的快照恢复 B。
 
 快照实现：
 
