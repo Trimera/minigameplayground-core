@@ -97,6 +97,8 @@ public final class ZoneManager {
 
                     boolean allowCreativeFlight = data.allowCreativeFlight != null
                             && data.allowCreativeFlight;
+                    boolean allowMobDrops = data.allowMobDrops != null
+                            && data.allowMobDrops;
 
                     String dimension = PlaygroundZone.DEFAULT_DIMENSION;
                     if (data.dimension != null && !data.dimension.isBlank()) {
@@ -113,7 +115,7 @@ public final class ZoneManager {
                             data.minX, data.minY, data.minZ,
                             data.maxX, data.maxY, data.maxZ, data.standardHealth,
                             restoreBaseline, keepDurability, damageDisabled, healDisabled,
-                            damageMode, allowCreativeFlight);
+                            damageMode, allowCreativeFlight, allowMobDrops);
                     if (ZONES.put(zone.getId(), zone) != null) {
                         MiniGamePlaygroundMod.LOGGER.warn("Duplicate playground zone id '{}'; the later entry wins.", zone.getId());
                     }
@@ -262,6 +264,17 @@ public final class ZoneManager {
         return true;
     }
 
+    public static synchronized boolean setAllowMobDrops(String id, boolean allowed) {
+        PlaygroundZone old = ZONES.get(id);
+        if (old == null) {
+            return false;
+        }
+        ZONES.put(id, old.withAllowMobDrops(allowed));
+        dirty = true;
+        save();
+        return true;
+    }
+
     public static synchronized PlaygroundZone getZone(String id) {
         return ZONES.get(id);
     }
@@ -273,6 +286,24 @@ public final class ZoneManager {
             }
         }
         return null;
+    }
+
+    /**
+     * Returns every zone that contains the given world position. Used by the mob-drop
+     * check so overlapping zones can apply the lenient rule "any allowing zone wins".
+     */
+    public static synchronized List<PlaygroundZone> getZonesAt(Level level,
+                                                               double x, double y, double z) {
+        if (level == null || level.isClientSide()) {
+            return List.of();
+        }
+        List<PlaygroundZone> result = new ArrayList<>();
+        for (PlaygroundZone zone : ZONES.values()) {
+            if (zone.isDimension(level) && zone.contains(x, y, z)) {
+                result.add(zone);
+            }
+        }
+        return result;
     }
 
     /**
@@ -392,6 +423,7 @@ public final class ZoneManager {
         private Boolean healDisabled;
         private String damageMode;
         private Boolean allowCreativeFlight;
+        private Boolean allowMobDrops;
 
         private static ZoneData from(PlaygroundZone zone) {
             ZoneData data = new ZoneData();
@@ -410,6 +442,7 @@ public final class ZoneManager {
             data.healDisabled = zone.isHealDisabled();
             data.damageMode = zone.getDamageMode().getId();
             data.allowCreativeFlight = zone.isCreativeFlightAllowed();
+            data.allowMobDrops = zone.isMobDropsAllowed();
             return data;
         }
     }

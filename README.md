@@ -42,7 +42,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.3.2.jar
+build/libs/minigameplayground-2.3.3.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -97,6 +97,7 @@ build/libs/minigameplayground-2.3.2.jar
 | `/mgp heal <区域ID> <恢复基准\|disable>` | 设置恢复基准，或禁用区域内治疗 |
 | `/mgp damage_mode <区域ID> <pvp\|all>` | 设置该区域的伤害平衡模式；不填模式时查询当前值 |
 | `/mgp flight <区域ID> [true\|false]` | 查看/设置生存、冒险、极限模式玩家的区域创造飞行；默认禁止 |
+| `/mgp mobdrops <区域ID> [true\|false]` | 查看/设置区域内 Mob 是否生成物品掉落；默认禁止 |
 | `/mgp unbreakable <区域ID> <true\|false>` | 开启/关闭区域内耐久保护 |
 | `/mgp reset <区域ID>` | 清除区域实体、恢复方块/方块实体和快照实体 |
 | `/mgp snapshot <区域ID>` | 重新生成当前地形和实体快照 |
@@ -411,8 +412,7 @@ config/minigameplayground.json
 
 ```json
 {
-  "maxZoneVolume": 500000,
-  "allowMobDrops": false
+  "maxZoneVolume": 500000
 }
 ```
 
@@ -422,24 +422,24 @@ config/minigameplayground.json
 - 超过 `1,000,000` 时会记录大体积警告。
 - 修改后执行 `/mgp reload` 生效。
 - 该上限作用于 `/mgp create`、`/mgp snapshot`、`/mgp reset`。
-- `allowMobDrops` 默认 `false`，禁止游戏区域内 Mob 生成物品掉落；修改后执行 `/mgp reload` 生效。
 
 ### 怪物掉落物
 
-默认情况下，游戏区域内的 Mob 不会生成物品掉落：
+每个区域独立设置，默认禁止：
+
+```text
+/mgp mobdrops arena true
+/mgp mobdrops arena false
+/mgp mobdrops arena
+```
 
 - 影响所有 `Mob`，包括僵尸、牛、鸡等；
 - 覆盖死亡战利品、装备掉落和 Mob 主动丢出的物品；
 - 不拦截玩家按 Q 丢弃的物品；
 - 不拦截经验球；
 - 不拦截方块掉落，方块掉落由方块保护逻辑单独处理；
-- 离开游戏区域后恢复正常掉落。
-
-如果地图需要保留怪物掉落，把通用配置改为：
-
-```json
-"allowMobDrops": true
-```
+- 离开游戏区域后恢复正常掉落；
+- 重叠区域采用宽松规则：所在区域中任意一个允许，就允许掉落。
 
 区域字段：
 
@@ -453,6 +453,7 @@ config/minigameplayground.json
 | `healDisabled` | `true` = 禁用区域治疗 |
 | `damageMode` | `"pvp"` = 仅玩家对玩家；`"all"` = 所有伤害来源 |
 | `allowCreativeFlight` | `false`（默认）= 禁止生存/冒险/极限模式创造飞行；`true` = 允许 |
+| `allowMobDrops` | `false`（默认）= 禁止区域内 Mob 物品掉落；`true` = 允许 |
 
 旧配置缺少新字段时使用默认值：
 
@@ -464,6 +465,7 @@ damageDisabled = false
 healDisabled = false
 damageMode = "pvp"
 allowCreativeFlight = false
+allowMobDrops = false
 ```
 
 伤害和恢复计算只读取内存，不会在战斗过程中读取磁盘。

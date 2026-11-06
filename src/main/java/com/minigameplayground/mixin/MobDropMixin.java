@@ -1,6 +1,5 @@
 package com.minigameplayground.mixin;
 
-import com.minigameplayground.MiniGamePlaygroundConfig;
 import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
@@ -30,17 +29,23 @@ public abstract class MobDropMixin {
     )
     private void minigameplayground$suppressMobDrops(ItemStack stack, float offsetY,
                                                       CallbackInfoReturnable<ItemEntity> cir) {
-        if (MiniGamePlaygroundConfig.isMobDropsAllowed()) {
-            return;
-        }
         Entity self = (Entity) (Object) this;
         if (!(self instanceof Mob)) {
             return;
         }
         Level level = self.level();
-        if (level != null && !level.isClientSide()
-                && ZoneManager.isInAnyPlaygroundZone(level, self.blockPosition())) {
-            cir.setReturnValue(null);
+        if (level == null || level.isClientSide()) {
+            return;
         }
+        var zones = ZoneManager.getZonesAt(level, self.getX(), self.getY(), self.getZ());
+        if (zones.isEmpty()) {
+            return;
+        }
+        for (var zone : zones) {
+            if (zone.isMobDropsAllowed()) {
+                return;
+            }
+        }
+        cir.setReturnValue(null);
     }
 }
