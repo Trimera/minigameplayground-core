@@ -11,6 +11,7 @@
     "BlockDropMixin",
     "ContainersMixin",
     "PistonStructureResolverMixin",
+    "MobDropMixin",
     "ServerPlayerMixin"
   ],
   "injectors": {

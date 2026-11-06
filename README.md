@@ -42,7 +42,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.3.1.jar
+build/libs/minigameplayground-2.3.2.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -411,7 +411,8 @@ config/minigameplayground.json
 
 ```json
 {
-  "maxZoneVolume": 500000
+  "maxZoneVolume": 500000,
+  "allowMobDrops": false
 }
 ```
 
@@ -421,6 +422,24 @@ config/minigameplayground.json
 - 超过 `1,000,000` 时会记录大体积警告。
 - 修改后执行 `/mgp reload` 生效。
 - 该上限作用于 `/mgp create`、`/mgp snapshot`、`/mgp reset`。
+- `allowMobDrops` 默认 `false`，禁止游戏区域内 Mob 生成物品掉落；修改后执行 `/mgp reload` 生效。
+
+### 怪物掉落物
+
+默认情况下，游戏区域内的 Mob 不会生成物品掉落：
+
+- 影响所有 `Mob`，包括僵尸、牛、鸡等；
+- 覆盖死亡战利品、装备掉落和 Mob 主动丢出的物品；
+- 不拦截玩家按 Q 丢弃的物品；
+- 不拦截经验球；
+- 不拦截方块掉落，方块掉落由方块保护逻辑单独处理；
+- 离开游戏区域后恢复正常掉落。
+
+如果地图需要保留怪物掉落，把通用配置改为：
+
+```json
+"allowMobDrops": true
+```
 
 区域字段：
 

@@ -25,26 +25,29 @@ public final class MiniGamePlaygroundConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private static volatile long maxZoneVolume = DEFAULT_MAX_ZONE_VOLUME;
+    private static volatile boolean allowMobDrops;
 
     private MiniGamePlaygroundConfig() {
     }
 
     public static synchronized void load() {
         maxZoneVolume = DEFAULT_MAX_ZONE_VOLUME;
+        allowMobDrops = false;
 
         Path source = Files.exists(CONFIG_FILE) ? CONFIG_FILE
                 : Files.exists(LEGACY_CONFIG_FILE) ? LEGACY_CONFIG_FILE
                 : null;
         if (source == null) {
-            write(DEFAULT_MAX_ZONE_VOLUME);
-            MiniGamePlaygroundMod.LOGGER.info("Created default config at {} (maxZoneVolume={}).",
-                    CONFIG_FILE, maxZoneVolume);
+            write();
+            MiniGamePlaygroundMod.LOGGER.info("Created default config at {} (maxZoneVolume={}, allowMobDrops={}).",
+                    CONFIG_FILE, maxZoneVolume, allowMobDrops);
             return;
         }
 
         try (Reader reader = Files.newBufferedReader(source, StandardCharsets.UTF_8)) {
             ConfigData data = GSON.fromJson(reader, ConfigData.class);
             long configured = data == null ? DEFAULT_MAX_ZONE_VOLUME : data.maxZoneVolume;
+            allowMobDrops = data != null && data.allowMobDrops;
 
             if (configured <= 0L) {
                 MiniGamePlaygroundMod.LOGGER.warn(
@@ -59,11 +62,11 @@ public final class MiniGamePlaygroundConfig {
             }
 
             maxZoneVolume = configured;
-            MiniGamePlaygroundMod.LOGGER.info("Loaded config from {} (maxZoneVolume={}).",
-                    source, maxZoneVolume);
+            MiniGamePlaygroundMod.LOGGER.info("Loaded config from {} (maxZoneVolume={}, allowMobDrops={}).",
+                    source, maxZoneVolume, allowMobDrops);
 
             if (source.equals(LEGACY_CONFIG_FILE)) {
-                write(configured);
+                write();
                 MiniGamePlaygroundMod.LOGGER.info(
                         "Migrated legacy config from {} to {}.", LEGACY_CONFIG_FILE, CONFIG_FILE);
             }
@@ -83,13 +86,19 @@ public final class MiniGamePlaygroundConfig {
         return maxZoneVolume;
     }
 
+    /** Whether mobs may create item drops inside playground zones. Default: false. */
+    public static boolean isMobDropsAllowed() {
+        return allowMobDrops;
+    }
+
     public static boolean isWithinLimit(long volume) {
         return volume > 0L && volume <= maxZoneVolume;
     }
 
-    private static void write(long value) {
+    private static void write() {
         ConfigData data = new ConfigData();
-        data.maxZoneVolume = value;
+        data.maxZoneVolume = maxZoneVolume;
+        data.allowMobDrops = allowMobDrops;
         try {
             Path parent = CONFIG_FILE.getParent();
             if (parent != null) {
@@ -104,5 +113,6 @@ public final class MiniGamePlaygroundConfig {
 
     private static final class ConfigData {
         private long maxZoneVolume = DEFAULT_MAX_ZONE_VOLUME;
+        private boolean allowMobDrops;
     }
 }
