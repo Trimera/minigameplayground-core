@@ -42,7 +42,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.3.3.jar
+build/libs/minigameplayground-2.3.4.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -92,15 +92,15 @@ build/libs/minigameplayground-2.3.3.jar
 | `/mgp create <区域ID> <x1> <y1> <z1> <x2> <y2> <z2>` | 在当前维度创建区域；坐标支持 `~` |
 | `/mgp create <区域ID> dimension <维度ID> <x1> <y1> <z1> <x2> <y2> <z2>` | 在指定维度创建区域 |
 | `/mgp remove <区域ID>` | 删除区域及其快照 |
-| `/mgp list [维度ID]` | 列出全部区域，或只列出指定维度的区域；支持 `the_nether` 简写 |
+| `/mgp list [维度ID\|区域模式]` | 列出全部区域；含冒号的参数按维度过滤，否则按区域模式过滤，支持 `*`、`?` 通配符 |
 | `/mgp damage <区域ID> <伤害基准\|disable>` | 设置伤害基准，或禁用区域内伤害 |
 | `/mgp heal <区域ID> <恢复基准\|disable>` | 设置恢复基准，或禁用区域内治疗 |
 | `/mgp damage_mode <区域ID> <pvp\|all>` | 设置该区域的伤害平衡模式；不填模式时查询当前值 |
 | `/mgp flight <区域ID> [true\|false]` | 查看/设置生存、冒险、极限模式玩家的区域创造飞行；默认禁止 |
 | `/mgp mobdrops <区域ID> [true\|false]` | 查看/设置区域内 Mob 是否生成物品掉落；默认禁止 |
 | `/mgp unbreakable <区域ID> <true\|false>` | 开启/关闭区域内耐久保护 |
-| `/mgp reset <区域ID>` | 清除区域实体、恢复方块/方块实体和快照实体 |
-| `/mgp snapshot <区域ID>` | 重新生成当前地形和实体快照 |
+| `/mgp reset <区域ID\|区域模式>` | 清除区域实体、恢复方块/方块实体和快照实体；支持通配符批量处理 |
+| `/mgp snapshot <区域ID\|区域模式>` | 重新生成当前地形和实体快照；支持通配符批量处理 |
 | `/mgp damage_rate <玩家> [区域ID]` | 查看伤害倍率 |
 | `/mgp heal_rate <玩家> [区域ID]` | 查看恢复倍率 |
 | `/mgp check` | 检查自己是否在场地内 |
@@ -351,6 +351,32 @@ Create Contraption 的组装/拆卸、矿车 NBT 和多区域判断放在独立�
 - 旧快照没有实体文件时仍按旧行为恢复：只恢复方块/方块实体并清理掉落物。
 - 普通实体、载具、盔甲架、掉落物等由核心模组保存；Create 实体（含 Contraption）由 `minigameplayground-create` 附属通过核心的 `ZoneSnapshotExtension` API 单独保存。未安装附属时核心不会接管 Create 实体。
 
+### 通配符批量操作
+
+`list`、`reset`、`snapshot` 支持简单通配符：
+
+| 通配符 | 含义 |
+| --- | --- |
+| `*` | 匹配任意长度的任意字符 |
+| `?` | 匹配单个字符 |
+
+```text
+/mgp list arena_*
+/mgp reset arena_*
+/mgp snapshot arena_door?
+```
+
+规则：
+
+- 精确区域 ID 仍然可用，例如 `/mgp reset arena`；
+- 匹配和通配符区分大小写，不支持正则表达式；
+- 匹配结果按区域创建/加载顺序执行；
+- 单次最多处理 `32` 个区域，超过上限会直接拒绝，不执行任何操作；
+- 没有匹配项会报错，不执行任何操作；
+- 批量执行时逐区域报告成功或失败，最后输出成功/失败数量；
+- 批量 `reset` 按展开顺序依次恢复，嵌套区域仍然是“后执行的覆盖先执行的”，需要固定叠加顺序时请控制匹配范围；
+- `/mgp list` 的参数含 `:` 时按维度过滤（例如 `minecraft:the_nether`），否则按区域模式过滤。
+
 ### 嵌套区域
 
 两个区域互相独立，没有父子关系，也没有自动级联：
@@ -540,7 +566,9 @@ allowMobDrops = false
 /mgp list mymod:custom_dimension
 ```
 
-`/mgp list the_nether` 这类未写命名空间的输入会自动补全为 `minecraft:the_nether`。
+`/mgp list` 只有参数包含 `:` 时才按维度过滤，因此请写完整维度 ID，例如
+`/mgp list minecraft:the_nether`。不含 `:` 的参数按区域模式处理，例如
+`/mgp list nether_*`。
 
 **WorldEdit 必须安装吗？**
 

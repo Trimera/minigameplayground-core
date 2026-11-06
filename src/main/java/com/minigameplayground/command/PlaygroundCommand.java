@@ -38,6 +38,7 @@ import java.util.Locale;
 
 public final class PlaygroundCommand {
     private static final int OP_LEVEL = 2;
+    private static final int MAX_BATCH_ZONES = 32;
     private static final double MIN_HEALTH = 0.1D;
     private static final double MAX_HEALTH = 100_000.0D;
 
@@ -51,6 +52,16 @@ public final class PlaygroundCommand {
     private static final SuggestionProvider<CommandSourceStack> DIMENSION_SUGGESTIONS = (context, builder) -> {
         for (ResourceKey<Level> key : context.getSource().getServer().levelKeys()) {
             builder.suggest(key.location().toString());
+        }
+        return builder.buildFuture();
+    };
+
+    private static final SuggestionProvider<CommandSourceStack> LIST_FILTER_SUGGESTIONS = (context, builder) -> {
+        for (ResourceKey<Level> key : context.getSource().getServer().levelKeys()) {
+            builder.suggest(key.location().toString());
+        }
+        for (String id : ZoneManager.getZoneIds()) {
+            builder.suggest(id);
         }
         return builder.buildFuture();
     };
@@ -77,10 +88,10 @@ public final class PlaygroundCommand {
                         .executes(context -> help(context.getSource())))
                 .then(Commands.literal("list")
                         .executes(context -> list(context.getSource(), null))
-                        .then(Commands.argument("dimension", ResourceLocationArgument.id())
-                                .suggests(DIMENSION_SUGGESTIONS)
+                        .then(Commands.argument("filter", StringArgumentType.greedyString())
+                                .suggests(LIST_FILTER_SUGGESTIONS)
                                 .executes(context -> list(context.getSource(),
-                                        ResourceLocationArgument.getId(context, "dimension")))))
+                                        StringArgumentType.getString(context, "filter")))))
                 .then(Commands.literal("check")
                         .executes(PlaygroundCommand::check))
                 .then(Commands.literal("reload")
@@ -116,12 +127,12 @@ public final class PlaygroundCommand {
                                 .executes(PlaygroundCommand::setUnbreakable))));
 
         root.then(Commands.literal("reset")
-                .then(Commands.argument("id", StringArgumentType.string())
+                .then(Commands.argument("pattern", StringArgumentType.greedyString())
                         .suggests(ZONE_SUGGESTIONS)
                         .executes(PlaygroundCommand::reset)));
 
         root.then(Commands.literal("snapshot")
-                .then(Commands.argument("id", StringArgumentType.string())
+                .then(Commands.argument("pattern", StringArgumentType.greedyString())
                         .suggests(ZONE_SUGGESTIONS)
                         .executes(PlaygroundCommand::snapshot)));
 
@@ -333,28 +344,48 @@ public final class PlaygroundCommand {
         return 1;
     }
 
-    private static int list(CommandSourceStack source, ResourceLocation dimensionArgument) {
-        String filter = dimensionArgument == null ? null : dimensionArgument.toString();
+    private static int list(CommandSourceStack source, String filterArgument) {
+        String filter = filterArgument == null ? null : filterArgument.trim();
+        if (filter != null && filter.isEmpty()) {
+            filter = null;
+        }
 
         List<PlaygroundZone> zones = new ArrayList<>();
-        for (PlaygroundZone zone : ZoneManager.getZones()) {
-            if (filter == null || filter.equals(zone.getDimension())) {
-                zones.add(zone);
+        String description;
+        if (filter == null) {
+            zones.addAll(ZoneManager.getZones());
+            description = null;
+        } else if (filter.indexOf(':') >= 0) {
+            ResourceLocation dimension = ResourceLocation.tryParse(filter);
+            if (dimension == null) {
+                final String rawFilter = filter;
+                source.sendFailure(Component.literal("[MGP] 维度 ID '" + rawFilter + "' 无效。"));
+                return 0;
             }
+            String dimensionId = dimension.toString();
+            for (PlaygroundZone zone : ZoneManager.getZones()) {
+                if (dimensionId.equals(zone.getDimension())) {
+                    zones.add(zone);
+                }
+            }
+            description = "维度 '" + dimensionId + "' 下";
+        } else {
+            zones.addAll(ZoneManager.matchZones(filter));
+            description = "区域模式 '" + filter + "' 下";
         }
 
         if (zones.isEmpty()) {
-            final String filterForMessage = filter;
-            source.sendSuccess(() -> Component.literal(filterForMessage == null
+            final String descriptionForMessage = description;
+            source.sendSuccess(() -> Component.literal(descriptionForMessage == null
                     ? "[MGP] 当前没有任何游戏场地。使用 /mgp create 创建。"
-                    : "[MGP] 维度 '" + filterForMessage + "' 下没有任何游戏场地。"), false);
+                    : "[MGP] " + descriptionForMessage + "没有任何游戏场地。"), false);
             return 0;
         }
 
-        final String filterForHeader = filter;
-        source.sendSuccess(() -> Component.literal(filterForHeader == null
+        final String descriptionForHeader = description;
+        source.sendSuccess(() -> Component.literal(descriptionForHeader == null
                 ? "[MGP] 当前共有 " + zones.size() + " 个游戏场地:"
-                : "[MGP] 维度 '" + filterForHeader + "' 下共有 " + zones.size() + " 个游戏场地:"), false);
+                : "[MGP] " + descriptionForHeader + "共有 " + zones.size() + " 个游戏场地:"), false);
         for (PlaygroundZone zone : zones) {
             String line = String.format(Locale.ROOT,
                     " - %s | %s | 范围: %s | 快照: %s",
@@ -487,30 +518,57 @@ public final class PlaygroundCommand {
 
     private static int reset(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        String id = StringArgumentType.getString(context, "id").trim();
-        PlaygroundZone zone = ZoneManager.getZone(id);
-        if (zone == null) {
-            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+        String pattern = StringArgumentType.getString(context, "pattern").trim();
+        List<PlaygroundZone> zones = matchBatchZones(source, pattern, "重置");
+        if (zones == null) {
             return 0;
         }
 
+        if (zones.size() > 1) {
+            source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                    "[MGP] 匹配到 %d 个区域，将按以下顺序重置：", zones.size())), false);
+            for (PlaygroundZone zone : zones) {
+                String id = zone.getId();
+                source.sendSuccess(() -> Component.literal(" - " + id), false);
+            }
+        }
+
+        int succeeded = 0;
+        for (PlaygroundZone zone : zones) {
+            if (resetZone(source, zone)) {
+                succeeded++;
+            }
+        }
+
+        int succeededCount = succeeded;
+        int failed = zones.size() - succeeded;
+        if (zones.size() > 1) {
+            source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                    "[MGP] 批量重置完成：成功 %d 个，失败 %d 个。", succeededCount, failed)),
+                    failed == 0);
+        }
+        return failed == 0 ? succeeded : 0;
+    }
+
+    private static boolean resetZone(CommandSourceStack source, PlaygroundZone zone) {
+        String id = zone.getId();
         if (!ZoneSnapshots.isWithinVolumeLimit(zone)) {
             source.sendFailure(Component.literal(String.format(Locale.ROOT,
-                    "[MGP] 场地体积过大：%d 个方块，最大允许 %d 个，无法重置。",
-                    zone.getBlockVolume(), MiniGamePlaygroundConfig.getMaxZoneVolume())));
-            return 0;
+                    "[MGP] 区域 '%s' 体积过大：%d 个方块，最大允许 %d 个，无法重置。",
+                    id, zone.getBlockVolume(), MiniGamePlaygroundConfig.getMaxZoneVolume())));
+            return false;
         }
 
         if (!ZoneSnapshots.hasSnapshot(id)) {
             source.sendFailure(Component.literal(
                     "[MGP] 区域 '" + id + "' 没有快照。请重新执行 /mgp create 或使用 /mgp snapshot " + id + "。"));
-            return 0;
+            return false;
         }
 
         ServerLevel level = ZoneSnapshots.resolveLevel(source.getServer(), source.getLevel(), zone);
         if (level == null) {
-            source.sendFailure(Component.literal("[MGP] 无法定位区域所在维度，重置失败。"));
-            return 0;
+            source.sendFailure(Component.literal("[MGP] 区域 '" + id + "' 无法定位所在维度，重置失败。"));
+            return false;
         }
 
         List<ServerPlayer> players = level.getPlayers(player -> zone.contains(player));
@@ -521,7 +579,7 @@ public final class PlaygroundCommand {
             sendTitle(players, Component.literal("场地重置失败").withStyle(ChatFormatting.RED),
                     10, 40, 10);
             source.sendFailure(Component.literal("[MGP] 区域 '" + id + "' 重置失败，请查看服务器日志。"));
-            return 0;
+            return false;
         }
 
         sendTitle(players, Component.literal("场地重置完成").withStyle(ChatFormatting.GREEN),
@@ -529,40 +587,88 @@ public final class PlaygroundCommand {
         String message = String.format(Locale.ROOT,
                 "[MGP] 区域 '%s' 已恢复方块和快照实体。", id);
         source.sendSuccess(() -> Component.literal(message), true);
-        return 1;
+        return true;
     }
 
     private static int snapshot(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        String id = StringArgumentType.getString(context, "id").trim();
-        PlaygroundZone zone = ZoneManager.getZone(id);
-        if (zone == null) {
-            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+        String pattern = StringArgumentType.getString(context, "pattern").trim();
+        List<PlaygroundZone> zones = matchBatchZones(source, pattern, "生成快照");
+        if (zones == null) {
             return 0;
         }
 
+        if (zones.size() > 1) {
+            source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                    "[MGP] 匹配到 %d 个区域，将按以下顺序生成快照：", zones.size())), false);
+            for (PlaygroundZone zone : zones) {
+                String id = zone.getId();
+                source.sendSuccess(() -> Component.literal(" - " + id), false);
+            }
+        }
+
+        int succeeded = 0;
+        for (PlaygroundZone zone : zones) {
+            if (snapshotZone(source, zone)) {
+                succeeded++;
+            }
+        }
+
+        int succeededCount = succeeded;
+        int failed = zones.size() - succeeded;
+        if (zones.size() > 1) {
+            source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                    "[MGP] 批量生成快照完成：成功 %d 个，失败 %d 个。", succeededCount, failed)),
+                    failed == 0);
+        }
+        return failed == 0 ? succeeded : 0;
+    }
+
+    private static boolean snapshotZone(CommandSourceStack source, PlaygroundZone zone) {
+        String id = zone.getId();
         if (!ZoneSnapshots.isWithinVolumeLimit(zone)) {
             source.sendFailure(Component.literal(String.format(Locale.ROOT,
-                    "[MGP] 场地体积过大：%d 个方块，最大允许 %d 个，无法生成快照。",
-                    zone.getBlockVolume(), MiniGamePlaygroundConfig.getMaxZoneVolume())));
-            return 0;
+                    "[MGP] 区域 '%s' 体积过大：%d 个方块，最大允许 %d 个，无法生成快照。",
+                    id, zone.getBlockVolume(), MiniGamePlaygroundConfig.getMaxZoneVolume())));
+            return false;
         }
 
         ServerLevel level = ZoneSnapshots.resolveLevel(source.getServer(), source.getLevel(), zone);
         if (level == null) {
-            source.sendFailure(Component.literal("[MGP] 无法定位区域所在维度，快照生成失败。"));
-            return 0;
+            source.sendFailure(Component.literal("[MGP] 区域 '" + id + "' 无法定位所在维度，快照生成失败。"));
+            return false;
         }
 
         source.sendSuccess(() -> Component.literal("[MGP] 正在为区域 '" + id + "' 生成快照..."), false);
         if (!ZoneSnapshots.save(level, zone)) {
-            source.sendFailure(Component.literal("[MGP] 快照生成失败，请查看服务器日志。"));
-            return 0;
+            source.sendFailure(Component.literal("[MGP] 区域 '" + id + "' 快照生成失败，请查看服务器日志。"));
+            return false;
         }
 
         source.sendSuccess(() -> Component.literal(
                 "[MGP] 区域 '" + id + "' 的快照已更新为当前地形。"), true);
-        return 1;
+        return true;
+    }
+
+    /**
+     * Resolves a zone pattern for batch commands. Returns {@code null} after reporting an
+     * error when nothing matches or the match exceeds the per-command limit.
+     */
+    private static List<PlaygroundZone> matchBatchZones(CommandSourceStack source,
+                                                        String pattern, String action) {
+        List<PlaygroundZone> zones = ZoneManager.matchZones(pattern);
+        if (zones.isEmpty()) {
+            source.sendFailure(Component.literal(
+                    "[MGP] 没有区域匹配 '" + pattern + "'，未执行" + action + "。"));
+            return null;
+        }
+        if (zones.size() > MAX_BATCH_ZONES) {
+            source.sendFailure(Component.literal(String.format(Locale.ROOT,
+                    "[MGP] 匹配到 %d 个区域，超过单次上限 %d 个，未执行%s。请缩小匹配范围。",
+                    zones.size(), MAX_BATCH_ZONES, action)));
+            return null;
+        }
+        return zones;
     }
 
     private static void sendTitle(List<ServerPlayer> players, Component title, int fadeIn, int stay, int fadeOut) {
@@ -693,8 +799,9 @@ public final class PlaygroundCommand {
                 "   如果区域ID已存在则更新范围和维度，并保留原有基准、耐久和 disable 设置。",
                 " /mgp remove <区域ID>",
                 "   删除指定区域及其快照。",
-                " /mgp list [维度ID]",
-                "   列出全部区域，或只列出指定维度的区域。",
+                " /mgp list [维度ID|区域模式]",
+                "   列出全部区域；含冒号的参数按维度过滤，否则按区域模式过滤。",
+                "   区域模式支持通配符: * 匹配任意字符，? 匹配单个字符。",
                 " /mgp damage <区域ID> <伤害基准|disable>",
                 "   设置伤害基准，或禁用区域内所有伤害（安全区）。",
                 "   设为数值会重新启用伤害；虚空伤害和 /kill 不受禁用影响。",
@@ -716,10 +823,12 @@ public final class PlaygroundCommand {
                 "   设置区域怪物掉落；默认禁止。",
                 " /mgp unbreakable <区域ID> <true|false>",
                 "   true = 不消耗物品耐久（默认）；false = 正常消耗耐久。",
-                " /mgp reset <区域ID>",
+                " /mgp reset <区域ID|区域模式>",
                 "   清除区域内非玩家实体，恢复方块、方块实体和快照实体。",
-                " /mgp snapshot <区域ID>",
+                "   支持通配符批量处理；按区域创建顺序执行，单次最多 " + MAX_BATCH_ZONES + " 个。",
+                " /mgp snapshot <区域ID|区域模式>",
                 "   保存当前地形和实体，作为该区域的新快照。",
+                "   支持通配符批量处理；按区域创建顺序执行，单次最多 " + MAX_BATCH_ZONES + " 个。",
                 "",
                 "调试与维护:",
                 " /mgp damage_rate <玩家> [区域ID]",

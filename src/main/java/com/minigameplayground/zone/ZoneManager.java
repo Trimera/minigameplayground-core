@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * In-memory registry of playground zones, persisted to
@@ -367,6 +368,46 @@ public final class ZoneManager {
             }
         }
         return result;
+    }
+
+    /**
+     * Matches zone ids using a simple glob: {@code *} for any sequence and
+     * {@code ?} for one character. Results keep the zone registry order.
+     */
+    public static synchronized List<PlaygroundZone> matchZones(String pattern) {
+        if (pattern == null || pattern.isBlank()) {
+            return List.of();
+        }
+        if (pattern.indexOf('*') < 0 && pattern.indexOf('?') < 0) {
+            PlaygroundZone exact = ZONES.get(pattern);
+            return exact == null ? List.of() : List.of(exact);
+        }
+        Pattern regex = Pattern.compile(globToRegex(pattern));
+        List<PlaygroundZone> result = new ArrayList<>();
+        for (PlaygroundZone zone : ZONES.values()) {
+            if (regex.matcher(zone.getId()).matches()) {
+                result.add(zone);
+            }
+        }
+        return result;
+    }
+
+    private static String globToRegex(String glob) {
+        StringBuilder regex = new StringBuilder("^");
+        for (int i = 0; i < glob.length(); i++) {
+            char c = glob.charAt(i);
+            switch (c) {
+                case '*' -> regex.append(".*");
+                case '?' -> regex.append('.');
+                default -> {
+                    if ("\\.^$|()[]{}+-".indexOf(c) >= 0) {
+                        regex.append('\\');
+                    }
+                    regex.append(c);
+                }
+            }
+        }
+        return regex.append('$').toString();
     }
 
     public static synchronized List<PlaygroundZone> getZones() {
