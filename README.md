@@ -626,3 +626,7 @@ disableSimplySkills = false
 ```
 
 然后执行 `/mgp reload`。不要设置超过 `20,000,000`，超过会被自动限制。
+
+## License
+
+MIT. See [LICENSE](LICENSE).

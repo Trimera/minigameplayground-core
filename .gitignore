@@ -12,3 +12,14 @@ bin/
 *.iml
 *.log
 .DS_Store
+
+# Local test server / downloaded runtime files
+server.jar
+fabric-server-*.jar
+.fabric/
+libraries/
+versions/
+mods/
+world/
+logs/
+crash-reports/
