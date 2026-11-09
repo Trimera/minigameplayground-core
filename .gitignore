@@ -2,5 +2,13 @@
 build/
 run/
 out/
+bin/
 .idea/
+.vscode/
+.settings/
+.classpath
+.factorypath
+.project
 *.iml
+*.log
+.DS_Store
