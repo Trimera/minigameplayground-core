@@ -537,8 +537,9 @@ disableSimplySkills = false
 - 耐久保护拦截 `ItemStack.hurtAndBreak(...)` 和 `ItemStack.hurt(...)`。
 - TaCZ 子弹最终走 `Entity.hurt(...)` / `LivingEntity.hurt(...)`，因此可以覆盖。
 - Spell Engine、Better Combat、Simply Swords、Puffish Attributes 等走原版流程的模组可以覆盖。
-- SimplySkills 在 `getDamageAfterMagicAbsorb` 返回时改写返回值并取消后续回调；本模组会在 `actuallyHurt` 的最终生命值处兜底，因此 `pvp` 和 `all` 模式下都不会漏掉有效伤害。
-- 如需在区域内关闭 Simply Skills 的 Undying、护盾、闪避、DDR 等效果，安装 `minigameplayground-simplyskills` 并使用 `/mgp simplyskills <区域> true`。
+- SimplySkills 在 `getDamageAfterMagicAbsorb` 返回时改写返回值并取消后续回调；对应的伤害兜底代码已移到可选附属 `minigameplayground-simplyskills` 中，并且只在启用了 `/mgp simplyskills <区域> true` 的区域生效。
+- 未安装 Simply Skills 附属时，核心模组不包含 Simply Skills 专用兜底；Simply Skills 仍可能取消核心的伤害平衡回调。
+- 如需在区域内关闭 Simply Skills 的 Undying、护盾、闪避、DDR、技能被动等，安装 `minigameplayground-simplyskills` 并使用 `/mgp simplyskills <区域> true`。
 - 完全绕过 `hurt()` / `heal()`、直接写生命值的模组无法拦截。
 - `all` 模式还会处理无来源伤害和非玩家来源伤害；`pvp` 模式不会。
 - MmmMmmMmmMmm 训练假人是 `Mob`，不是 `ServerPlayer`，不会触发玩家伤害/恢复倍率，可以安全用作测试目标。

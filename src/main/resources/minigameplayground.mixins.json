@@ -6,7 +6,6 @@
   "refmap": "minigameplayground.refmap.json",
   "mixins": [
     "LivingEntityMixin",
-    "PlayerDamageMixin",
     "PlayerDeathLootMixin",
     "ItemStackDurabilityMixin",
     "BlockDropMixin",
