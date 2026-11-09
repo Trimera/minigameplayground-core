@@ -100,6 +100,10 @@ public final class ZoneManager {
                             && data.allowCreativeFlight;
                     boolean allowMobDrops = data.allowMobDrops != null
                             && data.allowMobDrops;
+                    boolean keepInventory = data.keepInventory != null
+                            && data.keepInventory;
+                    boolean disableSimplySkills = data.disableSimplySkills != null
+                            && data.disableSimplySkills;
 
                     String dimension = PlaygroundZone.DEFAULT_DIMENSION;
                     if (data.dimension != null && !data.dimension.isBlank()) {
@@ -116,7 +120,8 @@ public final class ZoneManager {
                             data.minX, data.minY, data.minZ,
                             data.maxX, data.maxY, data.maxZ, data.standardHealth,
                             restoreBaseline, keepDurability, damageDisabled, healDisabled,
-                            damageMode, allowCreativeFlight, allowMobDrops);
+                            damageMode, allowCreativeFlight, allowMobDrops,
+                            keepInventory, disableSimplySkills);
                     if (ZONES.put(zone.getId(), zone) != null) {
                         MiniGamePlaygroundMod.LOGGER.warn("Duplicate playground zone id '{}'; the later entry wins.", zone.getId());
                     }
@@ -271,6 +276,28 @@ public final class ZoneManager {
             return false;
         }
         ZONES.put(id, old.withAllowMobDrops(allowed));
+        dirty = true;
+        save();
+        return true;
+    }
+
+    public static synchronized boolean setKeepInventory(String id, boolean keepInventory) {
+        PlaygroundZone old = ZONES.get(id);
+        if (old == null) {
+            return false;
+        }
+        ZONES.put(id, old.withKeepInventory(keepInventory));
+        dirty = true;
+        save();
+        return true;
+    }
+
+    public static synchronized boolean setDisableSimplySkills(String id, boolean disabled) {
+        PlaygroundZone old = ZONES.get(id);
+        if (old == null) {
+            return false;
+        }
+        ZONES.put(id, old.withDisableSimplySkills(disabled));
         dirty = true;
         save();
         return true;
@@ -444,7 +471,7 @@ public final class ZoneManager {
     }
 
     private static final class ConfigRoot {
-        private int version = 5;
+        private int version = 6;
         private List<ZoneData> zones = new ArrayList<>();
     }
 
@@ -465,6 +492,8 @@ public final class ZoneManager {
         private String damageMode;
         private Boolean allowCreativeFlight;
         private Boolean allowMobDrops;
+        private Boolean keepInventory;
+        private Boolean disableSimplySkills;
 
         private static ZoneData from(PlaygroundZone zone) {
             ZoneData data = new ZoneData();
@@ -484,6 +513,8 @@ public final class ZoneManager {
             data.damageMode = zone.getDamageMode().getId();
             data.allowCreativeFlight = zone.isCreativeFlightAllowed();
             data.allowMobDrops = zone.isMobDropsAllowed();
+            data.keepInventory = zone.isKeepInventory();
+            data.disableSimplySkills = zone.isSimplySkillsDisabled();
             return data;
         }
     }

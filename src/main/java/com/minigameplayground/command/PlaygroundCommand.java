@@ -119,6 +119,8 @@ public final class PlaygroundCommand {
         root.then(damageModeCommand());
         root.then(flightCommand());
         root.then(mobDropsCommand());
+        root.then(keepInventoryCommand());
+        root.then(simplySkillsCommand());
 
         root.then(Commands.literal("unbreakable")
                 .then(Commands.argument("id", StringArgumentType.string())
@@ -260,6 +262,83 @@ public final class PlaygroundCommand {
         return 1;
     }
 
+    private static LiteralArgumentBuilder<CommandSourceStack> keepInventoryCommand() {
+        return Commands.literal("keepinventory")
+                .then(Commands.argument("id", StringArgumentType.string())
+                        .suggests(ZONE_SUGGESTIONS)
+                        .executes(PlaygroundCommand::showKeepInventory)
+                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                .executes(PlaygroundCommand::setKeepInventory)));
+    }
+
+    private static int showKeepInventory(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        PlaygroundZone zone = ZoneManager.getZone(id);
+        if (zone == null) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 的库存保留: %s",
+                id, zone.isKeepInventory()
+                        ? "开启（死亡不掉落物品和经验）"
+                        : "跟随世界 keepInventory 游戏规则")), false);
+        return 1;
+    }
+
+    private static int setKeepInventory(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        boolean keep = BoolArgumentType.getBool(context, "value");
+        if (!ZoneManager.setKeepInventory(id, keep)) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 已%s库存保留。%s",
+                id, keep ? "开启" : "关闭",
+                keep ? "区域内死亡不掉落物品和经验。" : "区域内死亡按世界 keepInventory 游戏规则处理。")), true);
+        return 1;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> simplySkillsCommand() {
+        return Commands.literal("simplyskills")
+                .then(Commands.argument("id", StringArgumentType.string())
+                        .suggests(ZONE_SUGGESTIONS)
+                        .executes(PlaygroundCommand::showSimplySkills)
+                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                .executes(PlaygroundCommand::setSimplySkills)));
+    }
+
+    private static int showSimplySkills(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        PlaygroundZone zone = ZoneManager.getZone(id);
+        if (zone == null) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 的 Simply Skills: %s（需要安装 Simply Skills 兼容附属）",
+                id, zone.isSimplySkillsDisabled() ? "禁用" : "启用")), false);
+        return 1;
+    }
+
+    private static int setSimplySkills(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        boolean disabled = BoolArgumentType.getBool(context, "value");
+        if (!ZoneManager.setDisableSimplySkills(id, disabled)) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 已%s Simply Skills 兼容效果。",
+                id, disabled ? "禁用" : "启用")), true);
+        return 1;
+    }
+
     private static int create(CommandContext<CommandSourceStack> context) {
         return create(context, context.getSource().getLevel());
     }
@@ -301,13 +380,16 @@ public final class PlaygroundCommand {
         DamageMode damageMode = existing == null ? DamageMode.PVP : existing.getDamageMode();
         boolean allowCreativeFlight = existing != null && existing.isCreativeFlightAllowed();
         boolean allowMobDrops = existing != null && existing.isMobDropsAllowed();
+        boolean keepInventory = existing != null && existing.isKeepInventory();
+        boolean disableSimplySkills = existing != null && existing.isSimplySkillsDisabled();
 
         String dimension = level.dimension().location().toString();
         PlaygroundZone zone = new PlaygroundZone(id, dimension,
                 pos1.x, pos1.y, pos1.z,
                 pos2.x, pos2.y, pos2.z,
                 damageBaseline, restoreBaseline, keepDurability, damageDisabled, healDisabled,
-                damageMode, allowCreativeFlight, allowMobDrops);
+                damageMode, allowCreativeFlight, allowMobDrops,
+                keepInventory, disableSimplySkills);
 
         if (!ZoneSnapshots.isWithinVolumeLimit(zone)) {
             source.sendFailure(Component.literal(String.format(Locale.ROOT,
@@ -821,6 +903,10 @@ public final class PlaygroundCommand {
                 "   查看区域内 Mob 是否允许生成物品掉落。",
                 " /mgp mobdrops <区域ID> <true|false>",
                 "   设置区域怪物掉落；默认禁止。",
+                " /mgp keepinventory <区域ID> <true|false>",
+                "   true = 区域内死亡不掉落物品和经验；false = 跟随世界 keepInventory 规则。",
+                " /mgp simplyskills <区域ID> <true|false>",
+                "   true = 在区域内禁用 Simply Skills 兼容效果；需要安装兼容附属。",
                 " /mgp unbreakable <区域ID> <true|false>",
                 "   true = 不消耗物品耐久（默认）；false = 正常消耗耐久。",
                 " /mgp reset <区域ID|区域模式>",

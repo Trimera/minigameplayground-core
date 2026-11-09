@@ -7,6 +7,7 @@
   "mixins": [
     "LivingEntityMixin",
     "PlayerDamageMixin",
+    "PlayerDeathLootMixin",
     "ItemStackDurabilityMixin",
     "BlockDropMixin",
     "ContainersMixin",

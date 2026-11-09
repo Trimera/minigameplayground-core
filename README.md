@@ -42,7 +42,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.3.4.jar
+build/libs/minigameplayground-2.4.0.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -98,6 +98,8 @@ build/libs/minigameplayground-2.3.4.jar
 | `/mgp damage_mode <区域ID> <pvp\|all>` | 设置该区域的伤害平衡模式；不填模式时查询当前值 |
 | `/mgp flight <区域ID> [true\|false]` | 查看/设置生存、冒险、极限模式玩家的区域创造飞行；默认禁止 |
 | `/mgp mobdrops <区域ID> [true\|false]` | 查看/设置区域内 Mob 是否生成物品掉落；默认禁止 |
+| `/mgp keepinventory <区域ID> [true\|false]` | 查看/设置区域内死亡是否保留物品和经验；`true` = 强制保留，`false` = 跟随世界规则 |
+| `/mgp simplyskills <区域ID> [true\|false]` | 查看/设置区域内是否禁用 Simply Skills；需要安装兼容附属 |
 | `/mgp unbreakable <区域ID> <true\|false>` | 开启/关闭区域内耐久保护 |
 | `/mgp reset <区域ID\|区域模式>` | 清除区域实体、恢复方块/方块实体和快照实体；支持通配符批量处理 |
 | `/mgp snapshot <区域ID\|区域模式>` | 重新生成当前地形和实体快照；支持通配符批量处理 |
@@ -118,6 +120,8 @@ build/libs/minigameplayground-2.3.4.jar
 - 新区域默认恢复基准 `20.0`。
 - 新区域默认伤害模式为 `pvp`。
 - 新区域默认开启耐久保护，即不消耗物品耐久。
+- 新区域默认不强制库存保留，死亡时跟随世界 `keepInventory` 规则。
+- 新区域默认启用 Simply Skills；需要安装兼容附属才能在区域内禁用。
 - 再次对同一 ID 执行 `create` 会更新范围、维度和快照，保留原有基准、耐久、disable 和伤害模式设置。
 - 单个区域体积上限由 `config/minigameplayground.json` 的 `maxZoneVolume` 控制，默认 `500,000`，最大 `20,000,000`。
 
@@ -312,6 +316,32 @@ build/libs/minigameplayground-2.3.4.jar
 
 如果模组直接写入生命值（例如 `setHealth()`），不会经过恢复倍率。
 
+## 区域库存保留
+
+```text
+/mgp keepinventory <区域ID> true
+/mgp keepinventory <区域ID> false
+```
+
+- `true`：玩家在区域内死亡时保留物品栏、盔甲、副手和经验。
+- `false`（默认）：不覆盖世界规则，由 `keepInventory` 游戏规则决定。
+- 重叠区域采用宽松规则：任意一个区域开启库存保留，就保留。
+- 只影响玩家死亡掉落，不影响玩家主动丢弃物品。
+
+## Simply Skills 兼容
+
+核心模组只提供区域开关：
+
+```text
+/mgp simplyskills <区域ID> true
+```
+
+真正移除 Simply Skills 效果、关闭 Undying/护盾/闪避/DDR 的逻辑由可选附属
+`minigameplayground-simplyskills` 提供。未安装附属时该开关仅记录在区域配置中，
+不会改变 Simply Skills 行为。
+
+详细冲突列表和禁用范围见附属模组的 README。
+
 ## 场地保护
 
 ### 区域内方块无掉落物
@@ -480,6 +510,8 @@ config/minigameplayground.json
 | `damageMode` | `"pvp"` = 仅玩家对玩家；`"all"` = 所有伤害来源 |
 | `allowCreativeFlight` | `false`（默认）= 禁止生存/冒险/极限模式创造飞行；`true` = 允许 |
 | `allowMobDrops` | `false`（默认）= 禁止区域内 Mob 物品掉落；`true` = 允许 |
+| `keepInventory` | `false`（默认）= 跟随世界 `keepInventory` 游戏规则；`true` = 区域内死亡不掉落物品和经验 |
+| `disableSimplySkills` | `false`（默认）= 保留 Simply Skills；`true` = 在区域内禁用 Simply Skills 兼容效果 |
 
 旧配置缺少新字段时使用默认值：
 
@@ -492,6 +524,8 @@ healDisabled = false
 damageMode = "pvp"
 allowCreativeFlight = false
 allowMobDrops = false
+keepInventory = false
+disableSimplySkills = false
 ```
 
 伤害和恢复计算只读取内存，不会在战斗过程中读取磁盘。
@@ -502,8 +536,9 @@ allowMobDrops = false
 - 恢复缩放拦截 `LivingEntity.heal(float)`。
 - 耐久保护拦截 `ItemStack.hurtAndBreak(...)` 和 `ItemStack.hurt(...)`。
 - TaCZ 子弹最终走 `Entity.hurt(...)` / `LivingEntity.hurt(...)`，因此可以覆盖。
-- Spell Engine、Better Combat、Simply Swords、Puffish Attributes、SimplySkills 等走原版流程的模组可以覆盖。
+- Spell Engine、Better Combat、Simply Swords、Puffish Attributes 等走原版流程的模组可以覆盖。
 - SimplySkills 在 `getDamageAfterMagicAbsorb` 返回时改写返回值并取消后续回调；本模组会在 `actuallyHurt` 的最终生命值处兜底，因此 `pvp` 和 `all` 模式下都不会漏掉有效伤害。
+- 如需在区域内关闭 Simply Skills 的 Undying、护盾、闪避、DDR 等效果，安装 `minigameplayground-simplyskills` 并使用 `/mgp simplyskills <区域> true`。
 - 完全绕过 `hurt()` / `heal()`、直接写生命值的模组无法拦截。
 - `all` 模式还会处理无来源伤害和非玩家来源伤害；`pvp` 模式不会。
 - MmmMmmMmmMmm 训练假人是 `Mob`，不是 `ServerPlayer`，不会触发玩家伤害/恢复倍率，可以安全用作测试目标。

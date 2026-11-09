@@ -64,9 +64,9 @@ public abstract class PlayerDamageMixin {
 
             float newHealth = Math.max(0.0F, context.healthBefore() - scaledLoss);
             victim.setHealth(newHealth);
-            if (newHealth <= 0.0F && !victim.isDeadOrDying()) {
-                victim.die(source);
-            }
+            // Do not call die() directly. The outer LivingEntity.hurt() still handles
+            // totems and other mods' death-prevention hooks (for example Simply Skills'
+            // Undying effect) after actuallyHurt() returns.
         } finally {
             DamageFallbackContext.clear(context);
         }

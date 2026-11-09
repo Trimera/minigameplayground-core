@@ -34,6 +34,8 @@ public final class PlaygroundZone {
     private final DamageMode damageMode;
     private final boolean allowCreativeFlight;
     private final boolean allowMobDrops;
+    private final boolean keepInventory;
+    private final boolean disableSimplySkills;
 
     public PlaygroundZone(String id, double x1, double y1, double z1, double x2, double y2, double z2,
                    float standardHealth) {
@@ -85,6 +87,17 @@ public final class PlaygroundZone {
                    float standardHealth, float restoreBaseline, boolean keepDurability,
                    boolean damageDisabled, boolean healDisabled, DamageMode damageMode,
                    boolean allowCreativeFlight, boolean allowMobDrops) {
+        this(id, dimension, x1, y1, z1, x2, y2, z2, standardHealth, restoreBaseline,
+                keepDurability, damageDisabled, healDisabled, damageMode,
+                allowCreativeFlight, allowMobDrops, false, false);
+    }
+
+    public PlaygroundZone(String id, String dimension,
+                   double x1, double y1, double z1, double x2, double y2, double z2,
+                   float standardHealth, float restoreBaseline, boolean keepDurability,
+                   boolean damageDisabled, boolean healDisabled, DamageMode damageMode,
+                   boolean allowCreativeFlight, boolean allowMobDrops,
+                   boolean keepInventory, boolean disableSimplySkills) {
         this.id = id;
         this.dimension = dimension == null || dimension.isBlank() ? DEFAULT_DIMENSION : dimension;
         this.minX = Math.min(x1, x2);
@@ -101,6 +114,8 @@ public final class PlaygroundZone {
         this.damageMode = damageMode == null ? DamageMode.PVP : damageMode;
         this.allowCreativeFlight = allowCreativeFlight;
         this.allowMobDrops = allowMobDrops;
+        this.keepInventory = keepInventory;
+        this.disableSimplySkills = disableSimplySkills;
     }
 
     public String getId() {
@@ -169,6 +184,14 @@ public final class PlaygroundZone {
 
     public boolean isMobDropsAllowed() {
         return this.allowMobDrops;
+    }
+
+    public boolean isKeepInventory() {
+        return this.keepInventory;
+    }
+
+    public boolean isSimplySkillsDisabled() {
+        return this.disableSimplySkills;
     }
 
     public boolean isAllDamageMode() {
@@ -291,56 +314,72 @@ public final class PlaygroundZone {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, newStandardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills);
     }
 
     public PlaygroundZone withRestoreBaseline(float newRestoreBaseline) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, newRestoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills);
     }
 
     public PlaygroundZone withKeepDurability(boolean newKeepDurability) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 newKeepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills);
     }
 
     public PlaygroundZone withDamageDisabled(boolean newDamageDisabled) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, newDamageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills);
     }
 
     public PlaygroundZone withHealDisabled(boolean newHealDisabled) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, newHealDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills);
     }
 
     public PlaygroundZone withDamageMode(DamageMode newDamageMode) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, newDamageMode,
-                this.allowCreativeFlight, this.allowMobDrops);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills);
     }
 
     public PlaygroundZone withAllowCreativeFlight(boolean newAllowCreativeFlight) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                newAllowCreativeFlight, this.allowMobDrops);
+                newAllowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills);
     }
 
     public PlaygroundZone withAllowMobDrops(boolean newAllowMobDrops) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, newAllowMobDrops);
+                this.allowCreativeFlight, newAllowMobDrops, this.keepInventory, this.disableSimplySkills);
+    }
+
+    public PlaygroundZone withKeepInventory(boolean newKeepInventory) {
+        return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
+                this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
+                this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
+                this.allowCreativeFlight, this.allowMobDrops, newKeepInventory,
+                this.disableSimplySkills);
+    }
+
+    public PlaygroundZone withDisableSimplySkills(boolean newDisableSimplySkills) {
+        return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
+                this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
+                this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory,
+                newDisableSimplySkills);
     }
 
     public String describeBounds() {
@@ -357,10 +396,12 @@ public final class PlaygroundZone {
                 ? "禁用"
                 : String.format(java.util.Locale.ROOT, "%.1f", this.restoreBaseline);
         return String.format(java.util.Locale.ROOT,
-                "维度: %s，伤害模式: %s，伤害: %s，恢复: %s，耐久保护: %s，创造飞行: %s，怪物掉落: %s",
+                "维度: %s，伤害模式: %s，伤害: %s，恢复: %s，耐久保护: %s，创造飞行: %s，怪物掉落: %s，库存保留: %s，SimplySkills: %s",
                 this.dimension, this.damageMode.getDisplayName(), damage, heal,
                 this.keepDurability ? "开启" : "关闭",
                 this.allowCreativeFlight ? "允许" : "禁止",
-                this.allowMobDrops ? "允许" : "禁止");
+                this.allowMobDrops ? "允许" : "禁止",
+                this.keepInventory ? "开启" : "跟随世界规则",
+                this.disableSimplySkills ? "禁用" : "启用");
     }
 }
