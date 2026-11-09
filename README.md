@@ -336,7 +336,7 @@ build/libs/minigameplayground-2.4.0.jar
 /mgp simplyskills <区域ID> true
 ```
 
-真正移除 Simply Skills 效果、关闭 Undying/护盾/闪避/DDR 的逻辑由可选附属
+真正移除 Simply Skills 效果、关闭 Undying/护盾/闪避/DDR、技能被动和属性奖励的逻辑由可选附属
 `minigameplayground-simplyskills` 提供。未安装附属时该开关仅记录在区域配置中，
 不会改变 Simply Skills 行为。
 
@@ -511,7 +511,7 @@ config/minigameplayground.json
 | `allowCreativeFlight` | `false`（默认）= 禁止生存/冒险/极限模式创造飞行；`true` = 允许 |
 | `allowMobDrops` | `false`（默认）= 禁止区域内 Mob 物品掉落；`true` = 允许 |
 | `keepInventory` | `false`（默认）= 跟随世界 `keepInventory` 游戏规则；`true` = 区域内死亡不掉落物品和经验 |
-| `disableSimplySkills` | `false`（默认）= 保留 Simply Skills；`true` = 在区域内禁用 Simply Skills 兼容效果 |
+| `disableSimplySkills` | `false`（默认）= 保留 Simply Skills；`true` = 在区域内整体禁用 Simply Skills 的技能、效果和属性奖励 |
 
 旧配置缺少新字段时使用默认值：
 

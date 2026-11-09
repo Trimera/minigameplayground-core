@@ -6,7 +6,7 @@
 ./gradlew build
 ```
 
-产物：`build/libs/minigameplayground-2.2.3.jar`
+产物：`build/libs/minigameplayground-2.4.0.jar`
 
 当前项目固定使用：
 
@@ -18,7 +18,7 @@
 
 ## 安装
 
-把 `minigameplayground-2.2.3.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
+把 `minigameplayground-2.4.0.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
 服务端需要 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
 模组只处理服务端伤害、保护与指令，不添加物品、方块或客户端界面。
 
@@ -28,21 +28,21 @@ Create Contraption 防复制由独立附属模组 `minigameplayground-create` �
 
 ## 指令
 
-主指令：`/mgp`，兼容别名 `/minigameplayground`、`/pvb`、`/pvpbalance`。需要 OP 权限等级 2。
+主指令：`/mgp`，兼容别名 `/minigameplayground`。需要 OP 权限等级 2。
 
 ```text
 /mgp create <区域ID> <x1> <y1> <z1> <x2> <y2> <z2>
 /mgp create <区域ID> dimension <维度ID> <x1> <y1> <z1> <x2> <y2> <z2>
 /mgp remove <区域ID>
-/mgp list [维度ID]
+/mgp list [维度ID|区域模式]
 /mgp damage <区域ID> <伤害基准|disable>
 /mgp heal <区域ID> <恢复基准|disable>
 /mgp damage_mode <区域ID> <pvp|all>
 /mgp keepinventory <区域ID> <true|false>
 /mgp simplyskills <区域ID> <true|false>
 /mgp unbreakable <区域ID> <true|false>
-/mgp reset <区域ID>
-/mgp snapshot <区域ID>
+/mgp reset <区域ID|区域模式>
+/mgp snapshot <区域ID|区域模式>
 /mgp damage_rate <玩家> [区域ID]
 /mgp heal_rate <玩家> [区域ID]
 /mgp check
@@ -268,8 +268,8 @@ Create 的 Contraption 防复制放在独立附属模组 `minigameplayground-cre
 
 - 执行 `/mgp create` 时，会在后台为区域生成初始方块和实体快照。
 - 单个区域体积上限由 `config/minigameplayground.json` 的 `maxZoneVolume` 控制，默认 **500,000**，最大 **20,000,000**；超过时拒绝创建/重置。
-- `/mgp snapshot <区域ID>` 可用当前状态重新生成快照。
-- `/mgp reset <区域ID>` 会：
+- `/mgp snapshot <区域ID|区域模式>` 可用当前状态重新生成快照，支持通配符批量处理。
+- `/mgp reset <区域ID|区域模式>` 会：
   1. 向场地内玩家发送 Title：`§c场地正在重置中，请勿破坏...`；
   2. 先让骑乘被删除载具的玩家安全下坐骑；
   3. 清除区域 AABB 内的全部非玩家实体；
@@ -306,19 +306,18 @@ config/minigameplayground-snapshots/<区域ID哈希>.entities-create.nbt  # 安�
 
 ## 数据持久化
 
-区域数据保存在服务端：
+区域数据和快照按存档隔离：
 
 ```text
-config/minigameplayground.json
-config/minigameplayground-zones.json
-config/minigameplayground-snapshots/<区域ID哈希>.schem    # WorldEdit 快照
-config/minigameplayground-snapshots/<区域ID哈希>.nbt      # 内置兜底快照（异常时）
-config/minigameplayground-snapshots/<区域ID哈希>.meta.json
+<存档目录>/minigameplayground/zones.json
+<存档目录>/minigameplayground/snapshots/<区域ID哈希>.schem    # WorldEdit 快照
+<存档目录>/minigameplayground/snapshots/<区域ID哈希>.entities.nbt
+<存档目录>/minigameplayground/snapshots/<区域ID哈希>.meta.json
 ```
 
-如果新路径不存在，会自动读取旧版 `config/pvpbalance.json`、
-`config/pvpbalance-zones.json` 和 `config/pvpbalance-snapshots/`，并迁移到新路径。
-旧命令 `/pvb`、`/pvpbalance` 保留为兼容别名，新命令推荐 `/mgp`。
+旧的全局 `config/minigameplayground-zones.json`、`config/pvpbalance-zones.json`
+和 `config/minigameplayground-snapshots/` 不再读取，也不会自动迁移；需要旧数据时请手动复制到目标存档。
+旧命令 `/pvb`、`/pvpbalance` 已移除。
 
 通用配置：
 
@@ -349,7 +348,7 @@ config/minigameplayground-snapshots/<区域ID哈希>.meta.json
 - `/mgp create` 不带基准参数时，新区域正确生成伤害基准 20.0、恢复基准 20.0、耐久不消耗。
 - 在主世界和 `minecraft:the_nether` 相同坐标创建两个区域后，主世界玩家只识别主世界区域，传送到下界后只识别下界区域。
 - `/mgp create nether2 dimension minecraft:the_nether ...` 可以在控制台直接创建下界区域。
-- `/mgp list minecraft:the_nether` 和 `/mgp list the_nether` 都能正确过滤下界区域。
+- `/mgp list minecraft:the_nether` 能正确过滤下界区域；不含冒号的参数按区域模式处理。
 - 不存在的维度 ID 会被拒绝，不会创建区域。
 - 最大生命 40、伤害基准 20、无护甲：2 点伤害经过减伤后仍为 2，倍率 2 倍，实际扣除 4 点生命。
 - 最大生命 40、伤害基准 20、钻石胸甲：2 点伤害先被盔甲减到约 1.425，再乘 2 倍，实际扣除约 2.85 点。
