@@ -6,7 +6,7 @@
 ./gradlew build
 ```
 
-产物：`build/libs/minigameplayground-2.4.0.jar`
+产物：`build/libs/minigameplayground-2.5.0.jar`
 
 当前项目固定使用：
 
@@ -18,7 +18,7 @@
 
 ## 安装
 
-把 `minigameplayground-2.4.0.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
+把 `minigameplayground-2.5.0.jar` 放入**服务端**的 `mods` 目录即可。客户端不需要安装本模组；
 服务端需要 Fabric Loader 0.18.4、Fabric API 和 WorldEdit 7.2.15+。
 模组只处理服务端伤害、保护与指令，不添加物品、方块或客户端界面。
 
@@ -39,7 +39,8 @@ Create Contraption 防复制由独立附属模组 `minigameplayground-create` �
 /mgp heal <区域ID> <恢复基准|disable>
 /mgp damage_mode <区域ID> <pvp|all>
 /mgp keepinventory <区域ID> <true|false>
-/mgp simplyskills <区域ID> <true|false>
+/mgp elytra <区域ID> <true|false>
+/mgp simplyskills <区域ID> <enabled|disabled>
 /mgp unbreakable <区域ID> <true|false>
 /mgp reset <区域ID|区域模式>
 /mgp snapshot <区域ID|区域模式>
@@ -334,7 +335,7 @@ config/minigameplayground-snapshots/<区域ID哈希>.entities-create.nbt  # 安�
 - 修改后执行 `/mgp reload` 生效
 - 作用于 `create`、`snapshot`、`reset`
 
-每个区域配置包含 `dimension`、AABB 坐标、`standardHealth`、`restoreBaseline`、`keepDurability`、`damageDisabled`、`healDisabled`、`damageMode`、`allowCreativeFlight`、`allowMobDrops`、`keepInventory` 和 `disableSimplySkills`。
+每个区域配置包含 `dimension`、AABB 坐标、`standardHealth`、`restoreBaseline`、`keepDurability`、`damageDisabled`、`healDisabled`、`damageMode`、`allowCreativeFlight`、`allowMobDrops`、`keepInventory`、`disableSimplySkills` 和 `allowElytra`。
 
 启动服务器时加载区域到内存，执行创建、删除、修改伤害/恢复基准、disable 状态或耐久设置时立即原子写回磁盘。
 伤害/恢复计算路径只做内存 AABB 判断，不读取磁盘。快照仅在创建、`/mgp snapshot` 和 `/mgp reset` 时读写。
@@ -373,7 +374,7 @@ config/minigameplayground-snapshots/<区域ID哈希>.entities-create.nbt  # 安�
 - WorldEdit 快照写入 `.schem` 文件，`/mgp reset` 能从文件读取并恢复。
 - 旧版配置缺少新字段时，正确回退为恢复基准 20.0、耐久不消耗、伤害/恢复启用、不强制库存保留、不关闭 Simply Skills。
 - 区域内 `/mgp keepinventory true` 时，假人死亡后物品保留；`false` 时跟随世界 `keepInventory` 规则。
-- 安装 Simply Skills 附属并设置 `/mgp simplyskills <区域> true` 后，区域内的 `simplyskills:undying` 会被移除/阻止，致命伤害不再把生命锁在 1。
+- 安装 Simply Skills 附属并设置 `/mgp simplyskills <区域> disabled` 后，区域内的 `simplyskills:undying` 会被移除/阻止，致命伤害不再把生命锁在 1。
 - 重启服务器后区域配置和快照文件正确保留。
 - 原版活塞从区域内向区域外推动单个方块时，源方块被吞掉且不产生掉落物；目标位置保持空气。
 - 原版活塞在区域内推动、不跨越区域边界时，方块正常移动。

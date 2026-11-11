@@ -121,6 +121,7 @@ public final class PlaygroundCommand {
         root.then(mobDropsCommand());
         root.then(keepInventoryCommand());
         root.then(simplySkillsCommand());
+        root.then(elytraCommand());
 
         root.then(Commands.literal("unbreakable")
                 .then(Commands.argument("id", StringArgumentType.string())
@@ -307,8 +308,10 @@ public final class PlaygroundCommand {
                 .then(Commands.argument("id", StringArgumentType.string())
                         .suggests(ZONE_SUGGESTIONS)
                         .executes(PlaygroundCommand::showSimplySkills)
-                        .then(Commands.argument("value", BoolArgumentType.bool())
-                                .executes(PlaygroundCommand::setSimplySkills)));
+                        .then(Commands.literal("enabled")
+                                .executes(context -> setSimplySkills(context, false)))
+                        .then(Commands.literal("disabled")
+                                .executes(context -> setSimplySkills(context, true))));
     }
 
     private static int showSimplySkills(CommandContext<CommandSourceStack> context) {
@@ -321,21 +324,57 @@ public final class PlaygroundCommand {
         }
         source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
                 "[MGP] 区域 '%s' 的 Simply Skills: %s（需要安装 Simply Skills 兼容附属）",
-                id, zone.isSimplySkillsDisabled() ? "禁用" : "启用")), false);
+                id, zone.isSimplySkillsDisabled() ? "disabled" : "enabled")), false);
         return 1;
     }
 
-    private static int setSimplySkills(CommandContext<CommandSourceStack> context) {
+    private static int setSimplySkills(CommandContext<CommandSourceStack> context, boolean disabled) {
         CommandSourceStack source = context.getSource();
         String id = StringArgumentType.getString(context, "id").trim();
-        boolean disabled = BoolArgumentType.getBool(context, "value");
         if (!ZoneManager.setDisableSimplySkills(id, disabled)) {
             source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
             return 0;
         }
         source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
-                "[MGP] 区域 '%s' 已%s Simply Skills 兼容效果。",
-                id, disabled ? "禁用" : "启用")), true);
+                "[MGP] 区域 '%s' 的 Simply Skills 已设为 %s。",
+                id, disabled ? "disabled（整体禁用）" : "enabled（正常生效）")), true);
+        return 1;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> elytraCommand() {
+        return Commands.literal("elytra")
+                .then(Commands.argument("id", StringArgumentType.string())
+                        .suggests(ZONE_SUGGESTIONS)
+                        .executes(PlaygroundCommand::showElytra)
+                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                .executes(PlaygroundCommand::setElytra)));
+    }
+
+    private static int showElytra(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        PlaygroundZone zone = ZoneManager.getZone(id);
+        if (zone == null) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 的鞘翅滑行: %s",
+                id, zone.isElytraAllowed() ? "允许" : "禁止")), false);
+        return 1;
+    }
+
+    private static int setElytra(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        boolean allowed = BoolArgumentType.getBool(context, "value");
+        if (!ZoneManager.setAllowElytra(id, allowed)) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 已%s鞘翅滑行。",
+                id, allowed ? "允许" : "禁止")), true);
         return 1;
     }
 
@@ -382,6 +421,7 @@ public final class PlaygroundCommand {
         boolean allowMobDrops = existing != null && existing.isMobDropsAllowed();
         boolean keepInventory = existing != null && existing.isKeepInventory();
         boolean disableSimplySkills = existing != null && existing.isSimplySkillsDisabled();
+        boolean allowElytra = existing == null || existing.isElytraAllowed();
 
         String dimension = level.dimension().location().toString();
         PlaygroundZone zone = new PlaygroundZone(id, dimension,
@@ -389,7 +429,7 @@ public final class PlaygroundCommand {
                 pos2.x, pos2.y, pos2.z,
                 damageBaseline, restoreBaseline, keepDurability, damageDisabled, healDisabled,
                 damageMode, allowCreativeFlight, allowMobDrops,
-                keepInventory, disableSimplySkills);
+                keepInventory, disableSimplySkills, allowElytra);
 
         if (!ZoneSnapshots.isWithinVolumeLimit(zone)) {
             source.sendFailure(Component.literal(String.format(Locale.ROOT,
@@ -905,8 +945,10 @@ public final class PlaygroundCommand {
                 "   设置区域怪物掉落；默认禁止。",
                 " /mgp keepinventory <区域ID> <true|false>",
                 "   true = 区域内死亡不掉落物品和经验；false = 跟随世界 keepInventory 规则。",
-                " /mgp simplyskills <区域ID> <true|false>",
-                "   true = 在区域内禁用 Simply Skills 兼容效果；需要安装兼容附属。",
+                " /mgp simplyskills <区域ID> <enabled|disabled>",
+                "   disabled = 在区域内整体禁用 Simply Skills；需要安装兼容附属。",
+                " /mgp elytra <区域ID> <true|false>",
+                "   true = 允许鞘翅滑行（默认）；false = 禁止；重叠区域任意一个允许即允许。",
                 " /mgp unbreakable <区域ID> <true|false>",
                 "   true = 不消耗物品耐久（默认）；false = 正常消耗耐久。",
                 " /mgp reset <区域ID|区域模式>",

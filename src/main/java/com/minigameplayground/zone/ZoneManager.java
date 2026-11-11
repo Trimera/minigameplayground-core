@@ -104,6 +104,7 @@ public final class ZoneManager {
                             && data.keepInventory;
                     boolean disableSimplySkills = data.disableSimplySkills != null
                             && data.disableSimplySkills;
+                    boolean allowElytra = data.allowElytra == null || data.allowElytra;
 
                     String dimension = PlaygroundZone.DEFAULT_DIMENSION;
                     if (data.dimension != null && !data.dimension.isBlank()) {
@@ -121,7 +122,7 @@ public final class ZoneManager {
                             data.maxX, data.maxY, data.maxZ, data.standardHealth,
                             restoreBaseline, keepDurability, damageDisabled, healDisabled,
                             damageMode, allowCreativeFlight, allowMobDrops,
-                            keepInventory, disableSimplySkills);
+                            keepInventory, disableSimplySkills, allowElytra);
                     if (ZONES.put(zone.getId(), zone) != null) {
                         MiniGamePlaygroundMod.LOGGER.warn("Duplicate playground zone id '{}'; the later entry wins.", zone.getId());
                     }
@@ -287,6 +288,17 @@ public final class ZoneManager {
             return false;
         }
         ZONES.put(id, old.withKeepInventory(keepInventory));
+        dirty = true;
+        save();
+        return true;
+    }
+
+    public static synchronized boolean setAllowElytra(String id, boolean allowed) {
+        PlaygroundZone old = ZONES.get(id);
+        if (old == null) {
+            return false;
+        }
+        ZONES.put(id, old.withAllowElytra(allowed));
         dirty = true;
         save();
         return true;
@@ -471,7 +483,7 @@ public final class ZoneManager {
     }
 
     private static final class ConfigRoot {
-        private int version = 6;
+        private int version = 7;
         private List<ZoneData> zones = new ArrayList<>();
     }
 
@@ -494,6 +506,7 @@ public final class ZoneManager {
         private Boolean allowMobDrops;
         private Boolean keepInventory;
         private Boolean disableSimplySkills;
+        private Boolean allowElytra;
 
         private static ZoneData from(PlaygroundZone zone) {
             ZoneData data = new ZoneData();
@@ -515,6 +528,7 @@ public final class ZoneManager {
             data.allowMobDrops = zone.isMobDropsAllowed();
             data.keepInventory = zone.isKeepInventory();
             data.disableSimplySkills = zone.isSimplySkillsDisabled();
+            data.allowElytra = zone.isElytraAllowed();
             return data;
         }
     }
