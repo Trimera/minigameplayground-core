@@ -26,6 +26,7 @@ public final class MiniGamePlaygroundMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        FlightController.init();
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
                 PlaygroundCommand.register(dispatcher));
 

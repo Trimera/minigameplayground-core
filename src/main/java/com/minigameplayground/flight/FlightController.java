@@ -27,6 +27,10 @@ public final class FlightController {
     private FlightController() {
     }
 
+    public static void init() {
+        PalCompat.registerFlightDenyCallback();
+    }
+
     /**
      * Runs before the player's movement tick. Vanilla resets {@code fallDistance}
      * while {@code abilities.flying} is true, so flight must be cleared here as well
@@ -42,19 +46,7 @@ public final class FlightController {
         }
 
         SUPPRESSED.add(player.getUUID());
-        Abilities abilities = player.getAbilities();
-        boolean changed = false;
-        if (abilities.mayfly) {
-            abilities.mayfly = false;
-            changed = true;
-        }
-        if (abilities.flying) {
-            abilities.flying = false;
-            changed = true;
-        }
-        if (changed) {
-            player.onUpdateAbilities();
-        }
+        suppressFlight(player);
     }
 
     public static void tick(ServerPlayer player) {
@@ -69,11 +61,21 @@ public final class FlightController {
         }
 
         SUPPRESSED.add(player.getUUID());
+        suppressFlight(player);
+    }
+
+    private static void suppressFlight(ServerPlayer player) {
         Abilities abilities = player.getAbilities();
         boolean changed = false;
+
         if (abilities.mayfly) {
-            abilities.mayfly = false;
-            changed = true;
+            // Let PAL disable its own source first; only write the ability directly for
+            // non-PAL flight sources.
+            PalCompat.refreshFlight(player);
+            if (abilities.mayfly) {
+                abilities.mayfly = false;
+                changed = true;
+            }
         }
         if (abilities.flying) {
             abilities.flying = false;
@@ -108,7 +110,7 @@ public final class FlightController {
         }
     }
 
-    private static boolean isFlightDenied(ServerPlayer player) {
+    static boolean isFlightDenied(ServerPlayer player) {
         if (ZoneManager.size() == 0) {
             return false;
         }
