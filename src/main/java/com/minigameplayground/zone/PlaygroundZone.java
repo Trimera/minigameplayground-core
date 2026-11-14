@@ -16,6 +16,8 @@ import net.minecraft.world.phys.AABB;
 public final class PlaygroundZone {
     public static final float DEFAULT_DAMAGE_BASELINE = 20.0F;
     public static final float DEFAULT_RESTORE_BASELINE = 20.0F;
+    public static final int DEFAULT_FALL_DAMAGE_THRESHOLD = 3;
+    public static final int DISABLED_FALL_DAMAGE_THRESHOLD = -1;
     public static final String DEFAULT_DIMENSION = "minecraft:overworld";
 
     private final String id;
@@ -37,6 +39,7 @@ public final class PlaygroundZone {
     private final boolean keepInventory;
     private final boolean disableSimplySkills;
     private final boolean allowElytra;
+    private final int fallDamageThreshold;
 
     public PlaygroundZone(String id, double x1, double y1, double z1, double x2, double y2, double z2,
                    float standardHealth) {
@@ -110,6 +113,19 @@ public final class PlaygroundZone {
                    boolean damageDisabled, boolean healDisabled, DamageMode damageMode,
                    boolean allowCreativeFlight, boolean allowMobDrops,
                    boolean keepInventory, boolean disableSimplySkills, boolean allowElytra) {
+        this(id, dimension, x1, y1, z1, x2, y2, z2, standardHealth, restoreBaseline,
+                keepDurability, damageDisabled, healDisabled, damageMode,
+                allowCreativeFlight, allowMobDrops, keepInventory, disableSimplySkills,
+                allowElytra, DEFAULT_FALL_DAMAGE_THRESHOLD);
+    }
+
+    public PlaygroundZone(String id, String dimension,
+                   double x1, double y1, double z1, double x2, double y2, double z2,
+                   float standardHealth, float restoreBaseline, boolean keepDurability,
+                   boolean damageDisabled, boolean healDisabled, DamageMode damageMode,
+                   boolean allowCreativeFlight, boolean allowMobDrops,
+                   boolean keepInventory, boolean disableSimplySkills, boolean allowElytra,
+                   int fallDamageThreshold) {
         this.id = id;
         this.dimension = dimension == null || dimension.isBlank() ? DEFAULT_DIMENSION : dimension;
         this.minX = Math.min(x1, x2);
@@ -129,6 +145,10 @@ public final class PlaygroundZone {
         this.keepInventory = keepInventory;
         this.disableSimplySkills = disableSimplySkills;
         this.allowElytra = allowElytra;
+        this.fallDamageThreshold = fallDamageThreshold == DISABLED_FALL_DAMAGE_THRESHOLD
+                || fallDamageThreshold >= 2
+                ? fallDamageThreshold
+                : DEFAULT_FALL_DAMAGE_THRESHOLD;
     }
 
     public String getId() {
@@ -209,6 +229,18 @@ public final class PlaygroundZone {
 
     public boolean isElytraAllowed() {
         return this.allowElytra;
+    }
+
+    /**
+     * @return the fall height at which damage starts, or {@link #DISABLED_FALL_DAMAGE_THRESHOLD}
+     *         when fall damage is disabled in this zone
+     */
+    public int getFallDamageThreshold() {
+        return this.fallDamageThreshold;
+    }
+
+    public boolean isFallDamageDisabled() {
+        return this.fallDamageThreshold == DISABLED_FALL_DAMAGE_THRESHOLD;
     }
 
     public boolean isAllDamageMode() {
@@ -331,56 +363,56 @@ public final class PlaygroundZone {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, newStandardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withRestoreBaseline(float newRestoreBaseline) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, newRestoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withKeepDurability(boolean newKeepDurability) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 newKeepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withDamageDisabled(boolean newDamageDisabled) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, newDamageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withHealDisabled(boolean newHealDisabled) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, newHealDisabled, this.damageMode,
-                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withDamageMode(DamageMode newDamageMode) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, newDamageMode,
-                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra);
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withAllowCreativeFlight(boolean newAllowCreativeFlight) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                newAllowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra);
+                newAllowCreativeFlight, this.allowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withAllowMobDrops(boolean newAllowMobDrops) {
         return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
-                this.allowCreativeFlight, newAllowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra);
+                this.allowCreativeFlight, newAllowMobDrops, this.keepInventory, this.disableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withKeepInventory(boolean newKeepInventory) {
@@ -388,7 +420,7 @@ public final class PlaygroundZone {
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
                 this.allowCreativeFlight, this.allowMobDrops, newKeepInventory,
-                this.disableSimplySkills, this.allowElytra);
+                this.disableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withDisableSimplySkills(boolean newDisableSimplySkills) {
@@ -396,7 +428,7 @@ public final class PlaygroundZone {
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
                 this.allowCreativeFlight, this.allowMobDrops, this.keepInventory,
-                newDisableSimplySkills, this.allowElytra);
+                newDisableSimplySkills, this.allowElytra, this.fallDamageThreshold);
     }
 
     public PlaygroundZone withAllowElytra(boolean newAllowElytra) {
@@ -404,7 +436,15 @@ public final class PlaygroundZone {
                 this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
                 this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
                 this.allowCreativeFlight, this.allowMobDrops, this.keepInventory,
-                this.disableSimplySkills, newAllowElytra);
+                this.disableSimplySkills, newAllowElytra, this.fallDamageThreshold);
+    }
+
+    public PlaygroundZone withFallDamageThreshold(int newFallDamageThreshold) {
+        return new PlaygroundZone(this.id, this.dimension, this.minX, this.minY, this.minZ,
+                this.maxX, this.maxY, this.maxZ, this.standardHealth, this.restoreBaseline,
+                this.keepDurability, this.damageDisabled, this.healDisabled, this.damageMode,
+                this.allowCreativeFlight, this.allowMobDrops, this.keepInventory,
+                this.disableSimplySkills, this.allowElytra, newFallDamageThreshold);
     }
 
     public String describeBounds() {
@@ -420,14 +460,17 @@ public final class PlaygroundZone {
         String heal = this.healDisabled
                 ? "禁用"
                 : String.format(java.util.Locale.ROOT, "%.1f", this.restoreBaseline);
+        String fall = this.isFallDamageDisabled()
+                ? "禁用"
+                : Integer.toString(this.fallDamageThreshold);
         return String.format(java.util.Locale.ROOT,
-                "维度: %s，伤害模式: %s，伤害: %s，恢复: %s，耐久保护: %s，创造飞行: %s，怪物掉落: %s，库存保留: %s，SimplySkills: %s，鞘翅滑行: %s",
+                "维度: %s，伤害模式: %s，伤害: %s，恢复: %s，耐久保护: %s，创造飞行: %s，怪物掉落: %s，库存保留: %s，SimplySkills: %s，鞘翅滑行: %s，摔落受伤高度: %s",
                 this.dimension, this.damageMode.getDisplayName(), damage, heal,
                 this.keepDurability ? "开启" : "关闭",
                 this.allowCreativeFlight ? "允许" : "禁止",
                 this.allowMobDrops ? "允许" : "禁止",
                 this.keepInventory ? "开启" : "跟随世界规则",
                 this.disableSimplySkills ? "禁用" : "启用",
-                this.allowElytra ? "允许" : "禁止");
+                this.allowElytra ? "允许" : "禁止", fall);
     }
 }

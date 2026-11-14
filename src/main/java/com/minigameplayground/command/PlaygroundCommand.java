@@ -3,6 +3,7 @@ package com.minigameplayground.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -118,6 +119,7 @@ public final class PlaygroundCommand {
         root.then(healBaselineCommand());
         root.then(damageModeCommand());
         root.then(flightCommand());
+        root.then(fallDamageCommand());
         root.then(mobDropsCommand());
         root.then(keepInventoryCommand());
         root.then(simplySkillsCommand());
@@ -224,6 +226,53 @@ public final class PlaygroundCommand {
         source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
                 "[MGP] 区域 '%s' 已%s创造飞行（仅影响生存/冒险/极限模式）。",
                 id, allowed ? "允许" : "禁止")), true);
+        return 1;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> fallDamageCommand() {
+        return Commands.literal("falldamage")
+                .then(Commands.argument("id", StringArgumentType.string())
+                        .suggests(ZONE_SUGGESTIONS)
+                        .executes(PlaygroundCommand::showFallDamage)
+                        .then(Commands.literal("disable")
+                                .executes(context -> setFallDamage(context,
+                                        PlaygroundZone.DISABLED_FALL_DAMAGE_THRESHOLD)))
+                        .then(Commands.argument("height", IntegerArgumentType.integer(2, 1000))
+                                .executes(context -> setFallDamage(context,
+                                        IntegerArgumentType.getInteger(context, "height")))));
+    }
+
+    private static int showFallDamage(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        PlaygroundZone zone = ZoneManager.getZone(id);
+        if (zone == null) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        String value = zone.isFallDamageDisabled()
+                ? "disable"
+                : Integer.toString(zone.getFallDamageThreshold());
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "[MGP] 区域 '%s' 的摔落受伤高度: %s（默认 3；最低 2；disable 表示不受摔落伤害）",
+                id, value)), false);
+        return 1;
+    }
+
+    private static int setFallDamage(CommandContext<CommandSourceStack> context, int threshold) {
+        CommandSourceStack source = context.getSource();
+        String id = StringArgumentType.getString(context, "id").trim();
+        if (!ZoneManager.setFallDamageThreshold(id, threshold)) {
+            source.sendFailure(Component.literal("[MGP] 找不到区域 '" + id + "'。"));
+            return 0;
+        }
+        if (threshold == PlaygroundZone.DISABLED_FALL_DAMAGE_THRESHOLD) {
+            source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                    "[MGP] 区域 '%s' 已禁用摔落伤害。", id)), true);
+        } else {
+            source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                    "[MGP] 区域 '%s' 的摔落受伤高度已设为 %d 格。", id, threshold)), true);
+        }
         return 1;
     }
 
@@ -939,6 +988,9 @@ public final class PlaygroundCommand {
                 "   查看该区域是否允许生存/冒险/极限模式玩家创造飞行。",
                 " /mgp flight <区域ID> <true|false>",
                 "   设置区域创造飞行；默认禁止。创造/旁观模式始终允许。",
+                " /mgp falldamage <区域ID> [2-1000|disable]",
+                "   设置摔落受伤高度；默认 3，最低 2，disable 表示不受摔落伤害。",
+                "   使用原版摔落公式，保留跳跃提升和摔落保护；重叠区域取最高值，disable 优先。",
                 " /mgp mobdrops <区域ID>",
                 "   查看区域内 Mob 是否允许生成物品掉落。",
                 " /mgp mobdrops <区域ID> <true|false>",

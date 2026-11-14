@@ -43,7 +43,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.5.2.jar
+build/libs/minigameplayground-2.5.3.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -98,6 +98,7 @@ build/libs/minigameplayground-2.5.2.jar
 | `/mgp heal <区域ID> <恢复基准\|disable>` | 设置恢复基准，或禁用区域内治疗 |
 | `/mgp damage_mode <区域ID> <pvp\|all>` | 设置该区域的伤害平衡模式；不填模式时查询当前值 |
 | `/mgp flight <区域ID> [true\|false]` | 查看/设置生存、冒险、极限模式玩家的区域创造飞行；默认禁止 |
+| `/mgp falldamage <区域ID> [2-1000\|disable]` | 查看/设置摔落受伤高度；默认 3，最低 2，`disable` 表示不受摔落伤害 |
 | `/mgp mobdrops <区域ID> [true\|false]` | 查看/设置区域内 Mob 是否生成物品掉落；默认禁止 |
 | `/mgp keepinventory <区域ID> [true\|false]` | 查看/设置区域内死亡是否保留物品和经验；`true` = 强制保留，`false` = 跟随世界规则 |
 | `/mgp simplyskills <区域ID> [enabled\|disabled]` | 查看/设置区域内是否禁用 Simply Skills；需要安装兼容附属 |
@@ -236,6 +237,27 @@ build/libs/minigameplayground-2.5.2.jar
 - 不做装置检测；如果地图作者希望升腾台座等装置生效，可以围绕装置创建一个 `flight=true` 的小区域；
 - 离开禁止区域后只释放压制，不主动授予飞行。PlayerAbilityLib 来源会在离开时刷新；效果过期或装备已移除时不会恢复；
 - 管理员 `/fly` 在禁止区域内也会被压制，离开后需要重新执行。
+
+## 摔落受伤高度
+
+每个区域可以独立设置摔落受伤高度：
+
+```text
+/mgp falldamage arena_1 3
+/mgp falldamage arena_1 5
+/mgp falldamage arena_1 disable
+/mgp falldamage arena_1
+```
+
+规则：
+
+- 默认值 `3`，使用原版公式 `ceil((摔落距离 - 高度 - 跳跃提升) * 摔落保护倍率)`；
+- 最低可设置 `2`；
+- `disable` 表示该区域完全不受摔落伤害；
+- 正好等于设定高度时原版公式为 0 点，超过后开始受 1 点，之后每多一格增加 1 点；
+- 跳跃提升和摔落保护附魔仍然生效；
+- 摔落伤害跟随区域伤害模式：`all` 模式参与伤害平衡，`pvp` 模式不参与；
+- 重叠区域采用“更保护玩家”的规则：任意一个区域设置 `disable` 就禁用摔落伤害，否则取最高的受伤高度。
 
 ## 伤害模式
 
@@ -527,6 +549,7 @@ config/minigameplayground.json
 | `healDisabled` | `true` = 禁用区域治疗 |
 | `damageMode` | `"pvp"` = 仅玩家对玩家；`"all"` = 所有伤害来源 |
 | `allowCreativeFlight` | `false`（默认）= 禁止生存/冒险/极限模式创造飞行；`true` = 允许 |
+| `fallDamageThreshold` | `3`（默认）= 摔落受伤高度；`-1` = 禁用摔落伤害；最小有效值 `2` |
 | `allowMobDrops` | `false`（默认）= 禁止区域内 Mob 物品掉落；`true` = 允许 |
 | `keepInventory` | `false`（默认）= 跟随世界 `keepInventory` 游戏规则；`true` = 区域内死亡不掉落物品和经验 |
 | `disableSimplySkills` | `false`（默认）= 保留 Simply Skills；`true` = 在区域内整体禁用 Simply Skills 的技能、效果和属性奖励 |

@@ -6,7 +6,11 @@ import com.minigameplayground.damage.HealingProcessor;
 import com.minigameplayground.zone.PlaygroundZone;
 import com.minigameplayground.zone.ZoneManager;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.EntityTypeTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -60,6 +64,34 @@ public abstract class LivingEntityMixin {
             cir.setReturnValue(scaled);
         }
         DamageFallbackContext.markMagicApplied(victim, source);
+    }
+
+    @Inject(method = "calculateFallDamage", at = @At("RETURN"), cancellable = true)
+    private void minigameplayground$applyFallDamageThreshold(float fallDistance,
+                                                             float damageMultiplier,
+                                                             CallbackInfoReturnable<Integer> cir) {
+        if (!((Object) this instanceof ServerPlayer player)) {
+            return;
+        }
+
+        Integer threshold = ZoneManager.getFallDamageThreshold(player);
+        if (threshold == null) {
+            return;
+        }
+        if (threshold == PlaygroundZone.DISABLED_FALL_DAMAGE_THRESHOLD) {
+            cir.setReturnValue(0);
+            return;
+        }
+        if (player.getType().is(EntityTypeTags.FALL_DAMAGE_IMMUNE)) {
+            cir.setReturnValue(0);
+            return;
+        }
+
+        MobEffectInstance jumpBoost = player.getEffect(MobEffects.JUMP);
+        float jumpBoostReduction = jumpBoost == null
+                ? 0.0F : (float) (jumpBoost.getAmplifier() + 1);
+        float effectiveFall = fallDistance - (float) threshold - jumpBoostReduction;
+        cir.setReturnValue(Math.max(0, Mth.ceil(effectiveFall * damageMultiplier)));
     }
 
     @Inject(method = "heal", at = @At("HEAD"), cancellable = true)

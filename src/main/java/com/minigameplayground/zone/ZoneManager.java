@@ -105,6 +105,17 @@ public final class ZoneManager {
                     boolean disableSimplySkills = data.disableSimplySkills != null
                             && data.disableSimplySkills;
                     boolean allowElytra = data.allowElytra == null || data.allowElytra;
+                    int fallDamageThreshold = PlaygroundZone.DEFAULT_FALL_DAMAGE_THRESHOLD;
+                    if (data.fallDamageThreshold != null) {
+                        int value = data.fallDamageThreshold;
+                        if (value == PlaygroundZone.DISABLED_FALL_DAMAGE_THRESHOLD || value >= 2) {
+                            fallDamageThreshold = value;
+                        } else {
+                            MiniGamePlaygroundMod.LOGGER.warn(
+                                    "Zone '{}' has an invalid fall damage threshold {}; using default {}.",
+                                    data.id, value, PlaygroundZone.DEFAULT_FALL_DAMAGE_THRESHOLD);
+                        }
+                    }
 
                     String dimension = PlaygroundZone.DEFAULT_DIMENSION;
                     if (data.dimension != null && !data.dimension.isBlank()) {
@@ -122,7 +133,8 @@ public final class ZoneManager {
                             data.maxX, data.maxY, data.maxZ, data.standardHealth,
                             restoreBaseline, keepDurability, damageDisabled, healDisabled,
                             damageMode, allowCreativeFlight, allowMobDrops,
-                            keepInventory, disableSimplySkills, allowElytra);
+                            keepInventory, disableSimplySkills, allowElytra,
+                            fallDamageThreshold);
                     if (ZONES.put(zone.getId(), zone) != null) {
                         MiniGamePlaygroundMod.LOGGER.warn("Duplicate playground zone id '{}'; the later entry wins.", zone.getId());
                     }
@@ -271,6 +283,18 @@ public final class ZoneManager {
         return true;
     }
 
+    public static synchronized boolean setFallDamageThreshold(String id, int threshold) {
+        PlaygroundZone old = ZONES.get(id);
+        if (old == null || (threshold != PlaygroundZone.DISABLED_FALL_DAMAGE_THRESHOLD
+                && threshold < 2)) {
+            return false;
+        }
+        ZONES.put(id, old.withFallDamageThreshold(threshold));
+        dirty = true;
+        save();
+        return true;
+    }
+
     public static synchronized boolean setAllowMobDrops(String id, boolean allowed) {
         PlaygroundZone old = ZONES.get(id);
         if (old == null) {
@@ -361,6 +385,32 @@ public final class ZoneManager {
             }
         }
         return result;
+    }
+
+    /**
+     * Resolves the fall damage rule for overlapping zones.
+     *
+     * <p>If any containing zone disables fall damage, the result is
+     * {@link PlaygroundZone#DISABLED_FALL_DAMAGE_THRESHOLD}. Otherwise the highest
+     * (most protective) threshold wins. Returns {@code null} when the player is not in
+     * any zone, so vanilla behavior is left untouched.</p>
+     */
+    public static synchronized Integer getFallDamageThreshold(ServerPlayer player) {
+        List<PlaygroundZone> zones = getZonesAt(player);
+        if (zones.isEmpty()) {
+            return null;
+        }
+        int highest = Integer.MIN_VALUE;
+        for (PlaygroundZone zone : zones) {
+            int threshold = zone.getFallDamageThreshold();
+            if (threshold == PlaygroundZone.DISABLED_FALL_DAMAGE_THRESHOLD) {
+                return PlaygroundZone.DISABLED_FALL_DAMAGE_THRESHOLD;
+            }
+            if (threshold > highest) {
+                highest = threshold;
+            }
+        }
+        return highest == Integer.MIN_VALUE ? null : highest;
     }
 
     /**
@@ -483,7 +533,7 @@ public final class ZoneManager {
     }
 
     private static final class ConfigRoot {
-        private int version = 7;
+        private int version = 8;
         private List<ZoneData> zones = new ArrayList<>();
     }
 
@@ -507,6 +557,7 @@ public final class ZoneManager {
         private Boolean keepInventory;
         private Boolean disableSimplySkills;
         private Boolean allowElytra;
+        private Integer fallDamageThreshold;
 
         private static ZoneData from(PlaygroundZone zone) {
             ZoneData data = new ZoneData();
@@ -529,6 +580,7 @@ public final class ZoneManager {
             data.keepInventory = zone.isKeepInventory();
             data.disableSimplySkills = zone.isSimplySkillsDisabled();
             data.allowElytra = zone.isElytraAllowed();
+            data.fallDamageThreshold = zone.getFallDamageThreshold();
             return data;
         }
     }
