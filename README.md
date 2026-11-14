@@ -43,7 +43,7 @@ MiniGamePlayground 会根据玩家当前的最大生命值和场地基准，动�
 产物：
 
 ```text
-build/libs/minigameplayground-2.5.0.jar
+build/libs/minigameplayground-2.5.1.jar
 ```
 
 发布 jar 不会捆绑 WorldEdit 或 Fabric API。
@@ -230,6 +230,8 @@ build/libs/minigameplayground-2.5.0.jar
 - 创造/旁观模式始终允许飞行，不受区域设置影响；
 - 重叠区域采用宽松规则：只要玩家所在的任意一个区域允许，就允许飞行；
 - 禁止区域会统一压制 `mayfly` 和 `flying`，包括翅膀、飞行药水、管理员 `/fly` 等所有来源；
+- 压制同时发生在玩家 tick 开始和结束：开始阶段先清除飞行状态，避免 `fallDistance` 被飞行状态每 tick 重置，从而恢复正常的摔落伤害；
+- 摔落伤害仍然经过区域伤害平衡，例如伤害基准 `90`、玩家最大生命 `20` 时会被缩放到约 `20/90`；
 - 不做装置检测；如果地图作者希望升腾台座等装置生效，可以围绕装置创建一个 `flight=true` 的小区域；
 - 离开禁止区域后只释放压制，不主动授予飞行。PlayerAbilityLib 来源会在离开时刷新；效果过期或装备已移除时不会恢复；
 - 管理员 `/fly` 在禁止区域内也会被压制，离开后需要重新执行。

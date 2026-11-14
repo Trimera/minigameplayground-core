@@ -17,6 +17,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayerMixin {
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void minigameplayground$enforceFlightBeforeMovement(CallbackInfo ci) {
+        FlightController.beforeTick((ServerPlayer) (Object) this);
+    }
+
     @Inject(method = "tick", at = @At("TAIL"))
     private void minigameplayground$enforceFlightRules(CallbackInfo ci) {
         ServerPlayer player = (ServerPlayer) (Object) this;

@@ -27,6 +27,36 @@ public final class FlightController {
     private FlightController() {
     }
 
+    /**
+     * Runs before the player's movement tick. Vanilla resets {@code fallDistance}
+     * while {@code abilities.flying} is true, so flight must be cleared here as well
+     * as at the end of the tick. Otherwise a flight source that re-grants the ability
+     * every tick can keep resetting fall distance and suppress fall damage entirely.
+     */
+    public static void beforeTick(ServerPlayer player) {
+        if (player.isCreative() || player.isSpectator()) {
+            return;
+        }
+        if (!isFlightDenied(player)) {
+            return;
+        }
+
+        SUPPRESSED.add(player.getUUID());
+        Abilities abilities = player.getAbilities();
+        boolean changed = false;
+        if (abilities.mayfly) {
+            abilities.mayfly = false;
+            changed = true;
+        }
+        if (abilities.flying) {
+            abilities.flying = false;
+            changed = true;
+        }
+        if (changed) {
+            player.onUpdateAbilities();
+        }
+    }
+
     public static void tick(ServerPlayer player) {
         if (player.isCreative() || player.isSpectator()) {
             release(player);
